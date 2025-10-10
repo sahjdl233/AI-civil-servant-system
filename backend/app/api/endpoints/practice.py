@@ -198,23 +198,23 @@ async def get_category_questions(
     根据题型获取分类练习题目
     """
     try:
-        category_type = request_data.get("category_type")
+        category = request_data.get("category")
         limit = request_data.get("limit", 20)
         
-        if not category_type:
+        if not category:
             raise HTTPException(status_code=400, detail="缺少题型参数")
         
         # 获取该题型的题目
-        questions = await get_questions_by_type(db, category_type, limit=limit)
+        questions = await get_questions_by_type(db, category, limit=limit)
         
         if not questions:
-            raise HTTPException(status_code=404, detail=f"未找到题型为'{category_type}'的题目")
+            raise HTTPException(status_code=404, detail=f"未找到题型为'{category}'的题目")
         
         return {
             "success": True,
             "questions": questions,
             "total_questions": len(questions),
-            "category_type": category_type
+            "category": category
         }
         
     except Exception as e:

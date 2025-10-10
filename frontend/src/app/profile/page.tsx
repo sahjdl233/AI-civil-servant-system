@@ -22,10 +22,23 @@ const dimensionNames: { [key: string]: { name: string; icon: string; color: stri
   innovation: { name: '创新思维', icon: '💡', color: 'text-yellow-600' }
 };
 
+interface LearningRecord {
+  id: string;
+  type: 'essay' | 'assessment';
+  title: string;
+  score: number;
+  date: string;
+  details?: any;
+}
+
 export default function ProfilePage() {
   const [assessmentResult, setAssessmentResult] = useState<AssessmentResult | null>(null);
+  const [learningRecords, setLearningRecords] = useState<LearningRecord[]>([]);
 
   useEffect(() => {
+    // 检查是否在客户端环境
+    if (typeof window === 'undefined') return;
+    
     // 尝试从localStorage获取最新的测评结果
     try {
       const stored = localStorage.getItem('latest_assessment_result');
@@ -36,7 +49,57 @@ export default function ProfilePage() {
     } catch (error) {
       console.log('无法获取测评结果:', error);
     }
+
+    // 获取学习记录
+    loadLearningRecords();
   }, []);
+
+  const loadLearningRecords = () => {
+    try {
+      // 从localStorage获取申论练习记录
+      const essayRecords: LearningRecord[] = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key?.startsWith('essay_result_')) {
+          const data = JSON.parse(localStorage.getItem(key) || '{}');
+          essayRecords.push({
+            id: key,
+            type: 'essay',
+            title: `申论练习 - ${data.questionType || '综合题'}`,
+            score: data.score || 0,
+            date: data.timestamp || new Date().toISOString(),
+            details: data
+          });
+        }
+      }
+
+      // 从localStorage获取测评记录
+      const assessmentRecords: LearningRecord[] = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key?.startsWith('assessment_result_')) {
+          const data = JSON.parse(localStorage.getItem(key) || '{}');
+          assessmentRecords.push({
+            id: key,
+            type: 'assessment',
+            title: '能力测评',
+            score: data.total_score || 0,
+            date: data.completed_at || new Date().toISOString(),
+            details: data
+          });
+        }
+      }
+
+      // 合并并按时间排序
+      const allRecords = [...essayRecords, ...assessmentRecords]
+        .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+        .slice(0, 10); // 只显示最近10条记录
+
+      setLearningRecords(allRecords);
+    } catch (error) {
+      console.log('无法获取学习记录:', error);
+    }
+  };
   return (
     <div className="min-h-screen bg-gray-50">
       <Navigation />
@@ -193,31 +256,115 @@ export default function ProfilePage() {
           <div className="bg-white rounded-2xl p-8 shadow-lg border border-gray-100 mb-8">
             <h2 className="text-2xl font-bold text-gray-800 mb-6 text-center">学习进步时间线</h2>
             
-            <div className="text-center py-12">
-              <div className="w-24 h-24 mx-auto mb-6 rounded-full bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center shadow-sm">
-                <svg className="w-12 h-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
+            {learningRecords.length > 0 ? (
+              <div className="space-y-6">
+                {learningRecords.map((record, index) => (
+                  <div key={record.id} className="flex items-start space-x-4">
+                    {/* 时间线节点 */}
+                    <div className="flex flex-col items-center">
+                      <div className={`w-12 h-12 rounded-full flex items-center justify-center shadow-lg ${
+                        record.type === 'essay' 
+                          ? 'bg-gradient-to-br from-green-500 to-emerald-600' 
+                          : 'bg-gradient-to-br from-blue-500 to-indigo-600'
+                      }`}>
+                        {record.type === 'essay' ? (
+                          <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                          </svg>
+                        ) : (
+                          <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                        )}
+                      </div>
+                      {index < learningRecords.length - 1 && (
+                        <div className="w-0.5 h-16 bg-gradient-to-b from-gray-300 to-transparent mt-2"></div>
+                      )}
+                    </div>
+                    
+                    {/* 记录内容 */}
+                    <div className="flex-1 bg-gray-50 rounded-lg p-4">
+                      <div className="flex items-center justify-between mb-2">
+                        <h3 className="font-semibold text-gray-800">{record.title}</h3>
+                        <div className="flex items-center space-x-2">
+                          <span className={`px-3 py-1 rounded-full text-sm font-medium ${
+                            record.score >= 85 ? 'bg-green-100 text-green-800' :
+                            record.score >= 70 ? 'bg-yellow-100 text-yellow-800' :
+                            'bg-red-100 text-red-800'
+                          }`}>
+                            {record.score}分
+                          </span>
+                        </div>
+                      </div>
+                      <p className="text-gray-600 text-sm">
+                        {new Date(record.date).toLocaleString('zh-CN', {
+                          year: 'numeric',
+                          month: 'long',
+                          day: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit'
+                        })}
+                      </p>
+                      {record.type === 'essay' && record.details?.feedback && (
+                        <p className="text-gray-700 text-sm mt-2 line-clamp-2">
+                          {record.details.feedback.substring(0, 100)}...
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                ))}
+                
+                {/* 统计信息 */}
+                <div className="mt-8 p-6 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-center">
+                    <div>
+                      <div className="text-2xl font-bold text-blue-600">
+                        {learningRecords.length}
+                      </div>
+                      <div className="text-gray-600 text-sm">总练习次数</div>
+                    </div>
+                    <div>
+                      <div className="text-2xl font-bold text-green-600">
+                        {Math.round(learningRecords.reduce((sum, r) => sum + r.score, 0) / learningRecords.length) || 0}
+                      </div>
+                      <div className="text-gray-600 text-sm">平均分数</div>
+                    </div>
+                    <div>
+                      <div className="text-2xl font-bold text-purple-600">
+                        {learningRecords.filter(r => r.score >= 80).length}
+                      </div>
+                      <div className="text-gray-600 text-sm">优秀次数</div>
+                    </div>
+                  </div>
+                </div>
               </div>
-              <h3 className="text-xl font-semibold text-gray-700 mb-3">您的学习历程即将开始</h3>
-              <p className="text-gray-600 mb-6">
-                完成申论练习和能力测评后，这里将记录您的每一次进步
-              </p>
-              <div className="flex flex-col sm:flex-row gap-3 justify-center">
-                <Link 
-                  href="/assessment"
-                  className="bg-blue-500 text-white px-6 py-2 rounded-lg text-sm hover:bg-blue-600 transition-colors"
-                >
-                  开始能力测评
-                </Link>
-                <Link 
-                  href="/essay"
-                  className="bg-green-500 text-white px-6 py-2 rounded-lg text-sm hover:bg-green-600 transition-colors"
-                >
-                  申论练习
-                </Link>
+            ) : (
+              <div className="text-center py-12">
+                <div className="w-24 h-24 mx-auto mb-6 rounded-full bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center shadow-sm">
+                  <svg className="w-12 h-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+                <h3 className="text-xl font-semibold text-gray-700 mb-3">您的学习历程即将开始</h3>
+                <p className="text-gray-600 mb-6">
+                  完成申论练习和能力测评后，这里将记录您的每一次进步
+                </p>
+                <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                  <Link 
+                    href="/assessment"
+                    className="bg-blue-500 text-white px-6 py-2 rounded-lg text-sm hover:bg-blue-600 transition-colors"
+                  >
+                    开始能力测评
+                  </Link>
+                  <Link 
+                    href="/essay"
+                    className="bg-green-500 text-white px-6 py-2 rounded-lg text-sm hover:bg-green-600 transition-colors"
+                  >
+                    申论练习
+                  </Link>
+                </div>
               </div>
-            </div>
+            )}
           </div>
 
           {/* 行动建议 */}

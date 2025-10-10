@@ -112,7 +112,7 @@ def format_question_for_assessment(question: Question, db: Session = None) -> Di
             for img in question_images:
                 images.append({
                     "id": img.id,
-                    "url": f"http://localhost:65123/api/v1/questions/images/{img.image_path}",
+                    "url": f"http://localhost:8001/api/v1/questions/images/{img.image_path}",
                     "image_type": img.image_type,
                     "context_text": img.context_text,
                     "paragraph_index": img.paragraph_index,
@@ -158,7 +158,7 @@ def format_question_for_assessment(question: Question, db: Session = None) -> Di
                             is_option = (limg.image_type == 'option')
                             if is_option:
                                 continue
-                            url = f"http://localhost:65123/api/v1/questions/images/{limg.image_path}"
+                            url = f"http://localhost:8001/api/v1/questions/images/{limg.image_path}"
                             if url not in existing_urls:
                                 images.insert(0, {
                                     "id": limg.id,

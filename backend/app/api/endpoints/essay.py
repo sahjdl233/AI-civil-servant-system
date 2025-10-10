@@ -9,6 +9,10 @@ from app.services.ai_service import (
     clean_unicode_text,
     convert_diagnosis_to_score_details,
 )
+from app.services.ai_service_simple import (
+    grade_essay_simple,
+    get_question_type_simple
+)
 from app.core.config import settings
 import logging
 import json
@@ -301,6 +305,89 @@ async def grade_essay(submission: EssaySubmission):
             return response_data
         # 生产环境：保持 500
         raise HTTPException(status_code=500, detail="服务异常，请稍后再试")
+
+
+@router.post("/essays/grade-simple")
+async def grade_essay_simple_endpoint(submission: EssaySubmission):
+    """
+    简化版AI评分接口 - 火山引擎优化版
+    专门针对火山引擎API的超时问题进行优化
+    """
+    try:
+        logger.info("=== 简化版AI评分开始 ===")
+        logger.info(f"Content length: {len(submission.content)}")
+        logger.info(f"Requested type: {submission.question_type}")
+
+        # 确定题型
+        question_type = submission.question_type
+        question_type_source = "client"
+        if not question_type:
+            logger.info("题型未提供，使用简化版AI识别...")
+            question_type = await get_question_type_simple(submission.content)
+            question_type_source = "ai_simple"
+            logger.info(f"识别结果: {question_type}")
+
+        # 简化版评分
+        result = await grade_essay_simple(
+            essay_content=submission.content,
+            question_type=question_type
+        )
+        
+        logger.info(f"简化评分完成 - 分数: {result.score}")
+
+        # 格式化响应
+        score_details_list = []
+        if result.scoreDetails:
+            for detail in result.scoreDetails:
+                if hasattr(detail, 'model_dump'):
+                    score_details_list.append(detail.model_dump())
+                else:
+                    score_details_list.append(detail)
+
+        response_data = {
+            "score": result.score,
+            "feedback": result.feedback,
+            "suggestions": result.suggestions,
+            "scoreDetails": score_details_list,
+            "questionType": question_type,
+            "questionTypeSource": question_type_source,
+            "mode": "simple"  # 标记为简化模式
+        }
+
+        # 保存历史记录
+        try:
+            append_history(
+                kind="grade_simple",
+                request={
+                    "content": submission.content,
+                    "question_type": submission.question_type,
+                },
+                response=response_data,
+            )
+        except Exception as e:
+            logger.warning(f"保存历史记录失败: {e}")
+
+        return response_data
+
+    except Exception as e:
+        logger.error(f"简化版评分失败: {str(e)}")
+        # 返回兜底结果
+        return {
+            "score": 75.0,
+            "feedback": f"简化版AI评分服务异常: {str(e)[:100]}",
+            "suggestions": ["请稍后重试", "检查网络连接"],
+            "scoreDetails": [
+                {
+                    "item": "综合评价",
+                    "fullScore": 100.0,
+                    "actualScore": 75.0,
+                    "description": "服务异常，返回默认评分"
+                }
+            ],
+            "questionType": submission.question_type or "概括题",
+            "questionTypeSource": "fallback",
+            "mode": "simple"
+        }
 
 
 @router.get("/essays/ai-status")

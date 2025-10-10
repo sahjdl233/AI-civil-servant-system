@@ -40,12 +40,18 @@ async def upload_document(
     """上传docx文档进行解析"""
     
     # 验证文件类型
-    if not file.filename.endswith('.docx'):
+    if not file.filename or not file.filename.endswith('.docx'):
         raise HTTPException(status_code=400, detail="只支持.docx文件")
+    
+    # 检查是否为Word临时文件
+    if file.filename.startswith('~$'):
+        raise HTTPException(status_code=400, detail="不能上传Word临时文件，请上传正式的.docx文档")
     
     # 保存上传文件
     file_id = str(uuid.uuid4())
-    file_path = os.path.join(UPLOAD_DIR, f"{file_id}_{file.filename}")
+    # 清理文件名中的特殊字符
+    clean_filename = file.filename.replace('~$', '').replace('\\', '_').replace('/', '_')
+    file_path = os.path.join(UPLOAD_DIR, f"{file_id}_{clean_filename}")
     
     try:
         with open(file_path, "wb") as buffer:
@@ -375,7 +381,7 @@ async def get_question(question_id: str, db: Session = Depends(get_db)):
     for img in images:
         image_list.append({
             "id": img.id,
-            "url": f"http://localhost:65123/api/v1/questions/images/{img.image_path}",
+            "url": f"http://localhost:8001/api/v1/questions/images/{img.image_path}",
             "image_type": img.image_type,
             "context_text": img.context_text,
             "paragraph_index": img.paragraph_index,
@@ -430,7 +436,7 @@ async def get_question(question_id: str, db: Session = Depends(get_db)):
                         is_option = (limg.image_type == 'option') or is_option_ctx(limg.context_text or '')
                         if is_option:
                             continue
-                        url = f"http://localhost:65123/api/v1/questions/images/{limg.image_path}"
+                        url = f"http://localhost:8001/api/v1/questions/images/{limg.image_path}"
                         if url in existing_urls:
                             continue
                         image_list.insert(0, {
@@ -470,7 +476,7 @@ async def get_question(question_id: str, db: Session = Depends(get_db)):
                     for gi in group_imgs:
                         if is_option_img(gi):
                             continue
-                        url = f"http://localhost:65123/api/v1/questions/images/{gi.image_path}"
+                        url = f"http://localhost:8001/api/v1/questions/images/{gi.image_path}"
                         if url in seen_paths:
                             continue
                         supplemental.append({

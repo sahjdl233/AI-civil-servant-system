@@ -1,135 +1,97 @@
-#!/usr/bin/env pwsh
-Set-StrictMode -Version Latest
-$ErrorActionPreference = 'Stop'
+# 智考AI平台 - 动态端口全栈启动脚本
 
-Write-Host "🚀 Starting Full Stack Development Environment" -ForegroundColor Green
-Write-Host "=" * 80 -ForegroundColor Gray
+param(
+    [int]$BackendPort = 0,  # 0表示自动分配
+    [int]$FrontendPort = 0  # 0表示自动分配
+)
 
-# Function to start backend in background
-function Start-Backend {
-    Write-Host "📡 Starting Backend..." -ForegroundColor Yellow
-    Push-Location "backend"
+# 函数：检查端口是否被占用
+function Test-Port {
+    param([int]$Port)
     try {
-        $backendJob = Start-Job -ScriptBlock {
-            Set-Location $using:PWD
-            & ./dev.ps1
-        }
-        Write-Host "✅ Backend started (Job ID: $($backendJob.Id))" -ForegroundColor Green
-        return $backendJob
-    } finally {
-        Pop-Location
+        $listener = [System.Net.Sockets.TcpListener]::new([System.Net.IPAddress]::Any, $Port)
+        $listener.Start()
+        $listener.Stop()
+        return $true
+    }
+    catch {
+        return $false
     }
 }
 
-# Function to start frontend in background
-function Start-Frontend {
-    Write-Host "🌐 Starting Frontend..." -ForegroundColor Yellow
-    Push-Location "frontend"
-    try {
-        $frontendJob = Start-Job -ScriptBlock {
-            Set-Location $using:PWD
-            npm run dev
+# 函数：获取可用端口
+function Get-AvailablePort {
+    param([int]$StartPort = 3000)
+    
+    for ($port = $StartPort; $port -lt 65535; $port++) {
+        if (Test-Port -Port $port) {
+            return $port
         }
-        Write-Host "✅ Frontend started (Job ID: $($frontendJob.Id))" -ForegroundColor Green
-        return $frontendJob
-    } finally {
-        Pop-Location
     }
+    throw "无法找到可用端口"
 }
 
-# Function to wait for port files and display URLs
-function Show-URLs {
-    Write-Host "`n⏳ Waiting for services to start..." -ForegroundColor Yellow
-    
-    $timeout = 30
-    $elapsed = 0
-    
-    while ($elapsed -lt $timeout) {
-        $backendPort = $null
-        $frontendPort = $null
-        
-        # Check for backend port
-        if (Test-Path "backend_port.txt") {
-            $backendPort = Get-Content "backend_port.txt" -Raw | ForEach-Object { $_.Trim() }
-        }
-        
-        # Check for frontend port
-        if (Test-Path "frontend_port.txt") {
-            $frontendPort = Get-Content "frontend_port.txt" -Raw | ForEach-Object { $_.Trim() }
-        }
-        
-        # If both ports are available, show URLs
-        if ($backendPort -and $frontendPort) {
-            Write-Host "`n" + ("=" * 80) -ForegroundColor Green
-            Write-Host "🎉 DEVELOPMENT SERVERS READY!" -ForegroundColor Green
-            Write-Host ("=" * 80) -ForegroundColor Green
-            Write-Host ""
-            Write-Host "🌐 Frontend (React/Next.js):" -ForegroundColor Cyan
-            Write-Host "   👉 http://localhost:$frontendPort" -ForegroundColor White
-            Write-Host ""
-            Write-Host "📡 Backend (FastAPI):" -ForegroundColor Magenta  
-            Write-Host "   👉 http://localhost:$backendPort" -ForegroundColor White
-            Write-Host "   📖 API Docs: http://localhost:$backendPort/docs" -ForegroundColor White
-            Write-Host ""
-            Write-Host "🔧 To stop services: Press Ctrl+C" -ForegroundColor Yellow
-            Write-Host ("=" * 80) -ForegroundColor Green
-            return $true
-        }
-        
-        Start-Sleep -Seconds 1
-        $elapsed++
-    }
-    
-    Write-Warning "Timeout waiting for services to start. Check the individual terminals for errors."
-    return $false
-}
+Write-Host "🚀 智考AI平台 - 启动中..." -ForegroundColor Green
 
+# 检查Docker是否运行
 try {
-    # Start both services
-    $backendJob = Start-Backend
-    Start-Sleep -Seconds 2  # Give backend a head start
-    $frontendJob = Start-Frontend
-    
-    # Wait for URLs and display them
-    $success = Show-URLs
-    
-    if ($success) {
-        # Keep script running and monitor jobs
-        Write-Host "`n📡 Monitoring services... (Press Ctrl+C to stop)" -ForegroundColor Gray
-        
-        while ($true) {
-            # Check if jobs are still running
-            $backendRunning = (Get-Job -Id $backendJob.Id).State -eq "Running"
-            $frontendRunning = (Get-Job -Id $frontendJob.Id).State -eq "Running"
-            
-            if (-not $backendRunning) {
-                Write-Warning "Backend service stopped!"
-                break
-            }
-            
-            if (-not $frontendRunning) {
-                Write-Warning "Frontend service stopped!"
-                break
-            }
-            
-            Start-Sleep -Seconds 5
-        }
+    docker ps | Out-Null
+    Write-Host "✅ Docker 运行正常" -ForegroundColor Green
+}
+catch {
+    Write-Host "❌ Docker 未运行，请先启动Docker" -ForegroundColor Red
+    exit 1
+}
+
+# 启动数据库
+Write-Host "📦 启动PostgreSQL数据库..." -ForegroundColor Yellow
+docker-compose up -d postgres
+
+# 等待数据库启动
+Start-Sleep -Seconds 5
+
+# 确定后端端口
+if ($BackendPort -eq 0) {
+    $BackendPort = Get-AvailablePort -StartPort 8001
+}
+Write-Host "🔧 后端端口: $BackendPort" -ForegroundColor Cyan
+
+# 确定前端端口
+if ($FrontendPort -eq 0) {
+    $FrontendPort = Get-AvailablePort -StartPort 3000
+}
+Write-Host "🎨 前端端口: $FrontendPort" -ForegroundColor Cyan
+
+# 设置环境变量
+$env:BACKEND_PORT = $BackendPort
+$env:FRONTEND_PORT = $FrontendPort
+
+# 启动后端
+Write-Host "🔧 启动后端服务..." -ForegroundColor Yellow
+Start-Process -FilePath "powershell" -ArgumentList "-Command", "cd backend; uvicorn main:app --host 0.0.0.0 --port $BackendPort --reload" -WindowStyle Normal
+
+# 等待后端启动
+Start-Sleep -Seconds 3
+
+# 启动前端
+Write-Host "🎨 启动前端服务..." -ForegroundColor Yellow
+Start-Process -FilePath "powershell" -ArgumentList "-Command", "cd frontend; npm run dev -- --port $FrontendPort" -WindowStyle Normal
+
+# 显示访问地址
+Write-Host ""
+Write-Host "🎉 启动完成！" -ForegroundColor Green
+Write-Host "📱 前端地址: http://localhost:$FrontendPort" -ForegroundColor Cyan
+Write-Host "🔧 后端API: http://localhost:$BackendPort" -ForegroundColor Cyan
+Write-Host "📚 API文档: http://localhost:$BackendPort/docs" -ForegroundColor Cyan
+Write-Host ""
+Write-Host "按 Ctrl+C 停止服务" -ForegroundColor Yellow
+
+# 保持脚本运行
+try {
+    while ($true) {
+        Start-Sleep -Seconds 1
     }
-    
-} catch [System.Management.Automation.PipelineStoppedException] {
-    Write-Host "`n🛑 Stopping development servers..." -ForegroundColor Yellow
-} finally {
-    # Clean up jobs
-    if ($backendJob) {
-        Stop-Job -Id $backendJob.Id -PassThru | Remove-Job
-    }
-    if ($frontendJob) {
-        Stop-Job -Id $frontendJob.Id -PassThru | Remove-Job
-    }
-    
-    # Clean up port files
-    if (Test-Path "backend_port.txt") { Remove-Item "backend_port.txt" -Force }
-    if (Test-Path "frontend_port.txt") { Remove-Item "frontend_port.txt" -Force }
-    
-    Write-Host "👋 Development environment stopped." -ForegroundColor Gray
+}
+finally {
+    Write-Host "🛑 正在停止服务..." -ForegroundColor Red
 }

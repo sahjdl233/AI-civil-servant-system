@@ -196,7 +196,7 @@ export default function EssayPage() {
               setProgress(100);
               setStatusText("完成评估");
               const details = normalizeDetails(evt?.scoreDetails) ?? undefined;
-              setGradingResult((prev) => ({
+              const finalResult = {
                 score: toNumber(evt?.score, 0),
                 feedback: sanitizeText(String(evt?.feedback ?? "")),
                 suggestions: Array.isArray(evt?.suggestions)
@@ -204,10 +204,32 @@ export default function EssayPage() {
                   : [],
                 scoreDetails: details
                   ? details.map(d => ({ ...d, description: sanitizeText(d.description) }))
-                  : prev?.scoreDetails?.map(d => ({ ...d, description: sanitizeText(d.description) })),
-                questionType: qType ?? prev?.questionType,
-                questionTypeSource: qSrc ?? prev?.questionTypeSource,
-              } as GradingResult));
+                  : undefined,
+                questionType: qType,
+                questionTypeSource: qSrc,
+              } as GradingResult;
+              
+              setGradingResult((prev) => ({
+                ...finalResult,
+                scoreDetails: finalResult.scoreDetails || prev?.scoreDetails?.map(d => ({ ...d, description: sanitizeText(d.description) })),
+                questionType: finalResult.questionType ?? prev?.questionType,
+                questionTypeSource: finalResult.questionTypeSource ?? prev?.questionTypeSource,
+              }));
+              
+              // 保存学习记录到localStorage
+              try {
+                const recordId = `essay_result_${Date.now()}`;
+                const recordData = {
+                  ...finalResult,
+                  timestamp: new Date().toISOString(),
+                  content: myAnswer.substring(0, 200) + (myAnswer.length > 200 ? '...' : ''),
+                  questionMaterial: questionMaterial.substring(0, 200) + (questionMaterial.length > 200 ? '...' : '')
+                };
+                localStorage.setItem(recordId, JSON.stringify(recordData));
+                console.log('学习记录已保存:', recordId);
+              } catch (error) {
+                console.log('保存学习记录失败:', error);
+              }
             } else if (stage === "error") {
               throw new Error(String(evt?.message ?? "评分失败"));
             }
@@ -300,6 +322,22 @@ export default function EssayPage() {
       }
       setGradingResult(normalized);
       setStatusText("完成评估");
+      
+      // 保存学习记录到localStorage (fallback模式)
+      try {
+        const recordId = `essay_result_${Date.now()}`;
+        const recordData = {
+          ...normalized,
+          timestamp: new Date().toISOString(),
+          content: myAnswer.substring(0, 200) + (myAnswer.length > 200 ? '...' : ''),
+          questionMaterial: questionMaterial.substring(0, 200) + (questionMaterial.length > 200 ? '...' : '')
+        };
+        localStorage.setItem(recordId, JSON.stringify(recordData));
+        console.log('学习记录已保存 (fallback):', recordId);
+      } catch (error) {
+        console.log('保存学习记录失败 (fallback):', error);
+      }
+      
       finishProgress();
     } catch (error) {
       console.error("评分失败:", error);

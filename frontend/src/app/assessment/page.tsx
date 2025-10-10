@@ -144,6 +144,15 @@ export default function AssessmentPage() {
           // 保存通用格式
           localStorage.setItem('latest_assessment_result', JSON.stringify(data.data));
           
+          // 同时保存到学习记录中，供学习进步时间线使用
+          const recordId = `assessment_result_${Date.now()}`;
+          const recordData = {
+            ...data.data,
+            timestamp: new Date().toISOString()
+          };
+          localStorage.setItem(recordId, JSON.stringify(recordData));
+          console.log('测评记录已保存:', recordId);
+          
           // 同时保存练习专用格式
           const practiceData = {
             result: data.data,

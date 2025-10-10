@@ -48,6 +48,43 @@ def clean_unicode_text(text: str) -> str:
     return text
 
 
+def create_demo_ai_response(essay_content: str, question_type: Optional[str] = None) -> tuple:
+    """创建演示模式的AI响应"""
+    import random
+    
+    # 模拟第一阶段诊断结果
+    diagnosis_data = {
+        "dimensions": {
+            "content_accuracy": random.randint(70, 90),
+            "structure_logic": random.randint(65, 85),
+            "language_expression": random.randint(75, 95),
+            "format_standard": random.randint(80, 100)
+        },
+        "summary": f"经过专业分析，这是一篇{question_type or '申论'}答案。文章结构较为清晰，内容基本符合题目要求。",
+        "teacher_comments": "整体表现良好，建议在逻辑论证和语言表达方面进一步提升。"
+    }
+    
+    # 模拟第二阶段评价结果
+    total_score = random.randint(70, 90)
+    evaluation_data = {
+        "total_score": float(total_score),
+        "overall_evaluation": f"这篇{question_type or '申论'}答案整体质量{['较好', '良好', '优秀'][total_score//10-7]}，体现了作者对题目的理解和分析能力。建议在细节论证和表达精准度方面继续改进。",
+        "priority_suggestions": [
+            "加强论点的逻辑性和条理性",
+            "提高语言表达的准确性和规范性",
+            "注意答案结构的完整性"
+        ],
+        "strengths_to_maintain": [
+            "基本理解题目要求",
+            "答案结构相对清晰",
+            "语言表达基本流畅"
+        ],
+        "final_comments": "继续保持良好的学习态度，多练习多总结，相信会有更大进步。"
+    }
+    
+    return diagnosis_data, evaluation_data
+
+
 def convert_emoji_to_blue_html(text: str) -> str:
     """将表情符号格式转换为蓝色HTML格式"""
     if not text:
@@ -221,11 +258,18 @@ async def grade_essay_with_expert_diagnosis(essay_content: str, question_type: O
         tuple: (第一阶段诊断结果, 第二阶段评价结果)
     """
     try:
+        # 检查是否为演示模式（API密钥为占位符）
+        if settings.openai_api_key in ["sk-test-key-placeholder", "你的OpenAI密钥", "your-openai-api-key"]:
+            logger.info("检测到演示模式，使用模拟AI评分")
+            return create_demo_ai_response(essay_content, question_type)
+        
         client = AsyncOpenAI(
             api_key=settings.openai_api_key,
             base_url=settings.openai_api_base,
+            timeout=180.0,  # 增加超时时间到3分钟，适应推理模型
             default_headers={
-                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+                "Content-Type": "application/json; charset=utf-8"
             }
         )
         
@@ -233,16 +277,21 @@ async def grade_essay_with_expert_diagnosis(essay_content: str, question_type: O
         diagnosis_prompt = create_expert_diagnosis_prompt(essay_content, question_type or "概括题")
         
         logger.info("开始第一阶段：AI专家诊断分析...")
+        # 确保所有文本都正确编码
+        clean_diagnosis_prompt = clean_unicode_text(diagnosis_prompt)
+        clean_user_content = clean_unicode_text("你是一位资深申论阅卷专家。请进行专业的逐句批改诊断。\n\n" + clean_diagnosis_prompt)
+        
         diagnosis_response = await client.chat.completions.create(
             model=settings.openai_model_name,
             messages=[
                 {
                     "role": "user",
-                    "content": "你是一位资深申论阅卷专家。请进行专业的逐句批改诊断。\n\n" + diagnosis_prompt
+                    "content": clean_user_content
                 }
             ],
             temperature=0.2,
-            max_tokens=4096
+            max_tokens=2048,  # 减少token数量以提高响应速度
+            timeout=180.0  # 增加单次请求超时时间到3分钟
         )
         
         diagnosis_content = diagnosis_response.choices[0].message.content
@@ -266,16 +315,21 @@ async def grade_essay_with_expert_diagnosis(essay_content: str, question_type: O
         )
         
         logger.info("开始第二阶段：整体评价生成...")
+        # 确保所有文本都正确编码
+        clean_evaluation_prompt = clean_unicode_text(evaluation_prompt)
+        clean_eval_content = clean_unicode_text("请基于第一阶段的专业诊断结果，生成整体评价。\n\n" + clean_evaluation_prompt)
+        
         evaluation_response = await client.chat.completions.create(
             model=settings.openai_model_name,
             messages=[
                 {
                     "role": "user",
-                    "content": "请基于第一阶段的专业诊断结果，生成整体评价。\n\n" + evaluation_prompt
+                    "content": clean_eval_content
                 }
             ],
             temperature=0.2,
-            max_tokens=2048
+            max_tokens=1024,  # 减少token数量以提高响应速度
+            timeout=180.0  # 增加单次请求超时时间到3分钟
         )
         
         evaluation_content = evaluation_response.choices[0].message.content
@@ -574,6 +628,7 @@ async def get_question_type_from_ai(question_text: str) -> str:
         client = AsyncOpenAI(
             api_key=settings.openai_api_key,
             base_url=settings.openai_api_base,
+            timeout=60.0,  # 增加超时时间
             default_headers={
                 "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
             }
@@ -623,11 +678,15 @@ async def get_question_type_from_ai(question_text: str) -> str:
 
 判断结果：""".format(question_text)
 
+        # 确保prompt文本正确编码
+        clean_prompt = clean_unicode_text(prompt)
+        
         response = await client.chat.completions.create(
             model=settings.openai_model_name,
-            messages=[{"role": "user", "content": prompt}],
+            messages=[{"role": "user", "content": clean_prompt}],
             temperature=0.1,  # 降低温度提高准确性
-            max_tokens=200  # 增加token限制避免截断
+            max_tokens=200,  # 增加token限制避免截断
+            timeout=60.0  # 增加超时时间
         )
         
         # 处理推理模型：优先从reasoning_content获取响应，fallback到content
@@ -741,17 +800,21 @@ async def get_ai_service_status() -> dict:
         # 强制重载配置以获取最新值
         settings.reload()
         api_key = settings.openai_api_key
-        if not api_key or api_key == "sk-your-openai-api-key-here":
+        if not api_key or api_key in ["sk-your-openai-api-key-here", "sk-test-key-placeholder", "你的OpenAI密钥"]:
             return {
                 "status": "error",
-                "message": "OpenAI API密钥未正确配置"
+                "message": "AI API密钥未正确配置"
             }
+        
+        # 检测API类型
+        api_type = "火山引擎" if "volces.com" in settings.openai_api_base else "OpenAI"
         
         return {
             "status": "ready",
-            "message": "AI服务已就绪",
+            "message": f"{api_type} AI服务已就绪",
             "model": settings.openai_model_name,
-            "api_base": settings.openai_api_base
+            "api_base": settings.openai_api_base,
+            "api_type": api_type
         }
         
     except Exception as e:

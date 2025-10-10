@@ -68,6 +68,9 @@ export default function PracticeSessionPage() {
   useEffect(() => {
     const initializePractice = async () => {
       try {
+        // 检查是否在客户端环境
+        if (typeof window === 'undefined') return;
+        
         // 获取练习配置
         const savedConfig = localStorage.getItem('practice_config');
         if (!savedConfig) {
@@ -97,7 +100,9 @@ export default function PracticeSessionPage() {
 
         if (questionsData.length === 0) {
           alert('未找到合适的题目');
-          window.location.href = '/practice';
+          if (typeof window !== 'undefined') {
+            window.location.href = '/practice';
+          }
           return;
         }
 
@@ -105,7 +110,9 @@ export default function PracticeSessionPage() {
       } catch (error) {
         console.error('初始化练习失败:', error);
         alert('初始化练习失败，请重试');
-        window.location.href = '/practice';
+        if (typeof window !== 'undefined') {
+          window.location.href = '/practice';
+        }
       } finally {
         setLoading(false);
       }
@@ -261,12 +268,16 @@ export default function PracticeSessionPage() {
     setSubmitted(true);
 
     // 清除练习配置
-    localStorage.removeItem('practice_config');
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('practice_config');
+    }
   };
 
   // 重新开始
   const restart = () => {
-    window.location.href = '/practice';
+    if (typeof window !== 'undefined') {
+      window.location.href = '/practice';
+    }
   };
 
   // 格式化时间
@@ -353,7 +364,11 @@ export default function PracticeSessionPage() {
                   返回练习中心
                 </button>
                 <button
-                  onClick={() => window.location.href = '/assessment'}
+                  onClick={() => {
+                    if (typeof window !== 'undefined') {
+                      window.location.href = '/assessment';
+                    }
+                  }}
                   className="bg-white border-2 border-blue-500 text-blue-600 hover:bg-blue-50 font-semibold py-3 px-8 rounded-xl shadow-lg hover:shadow-xl transform transition-all duration-200 hover:scale-105"
                 >
                   能力测评
