@@ -19,10 +19,10 @@
 
 ```powershell
 # 推荐：动态端口分配（自动处理端口占用）
-.\dev-fullstack.ps1
+.\scripts\dev-fullstack.ps1
 
 # 固定端口开发（稀有端口，避免冲突）
-D:\some\run-dev-rare-ports.ps1
+.\scripts\run-dev-rare-ports.ps1
 
 # 自定义端口
 D:\some\run-dev-rare-ports.ps1 -BackendPort 8004 -FrontendPort 3000
@@ -40,7 +40,7 @@ D:\some\run-dev-rare-ports.ps1 -BackendPort 8004 -FrontendPort 3000
 ```powershell
 # 在启动窗口按 Ctrl+C 停止服务
 # 或使用快速管理工具
-.\quick-restart.bat stop
+.\scripts\quick-restart.bat stop
 ```
 
 ## 🏗️ 技术架构
@@ -68,10 +68,10 @@ D:\some\run-dev-rare-ports.ps1 -BackendPort 8004 -FrontendPort 3000
 ## 📁 项目结构
 
 ```
-├── dev-fullstack.ps1       # 动态端口全栈启动脚本
-├── run-dev-rare-ports.ps1  # 固定端口启动脚本（稀有端口，完整路径：D:\some\run-dev-rare-ports.ps1）
-├── quick-restart.bat       # 快速服务管理工具
-├── backend/                # FastAPI后端
+├── scripts/                # 脚本集中目录
+│   ├── dev-fullstack.ps1       # 动态端口全栈启动脚本
+│   ├── run-dev-rare-ports.ps1  # 固定端口启动脚本（稀有端口，也可使用 .\scripts\run-dev-rare-ports.ps1）
+│   └── quick-restart.bat       # 快速服务管理工具
 │   ├── app/               # 应用源码
 │   │   ├── api/endpoints/ # API路由
 │   │   ├── services/      # AI服务集成

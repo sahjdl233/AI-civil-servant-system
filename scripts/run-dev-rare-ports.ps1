@@ -46,13 +46,13 @@ function Write-PortFile {
 
 function Maybe-Start-DB {
   if ($NoDB) { return }
-  $composeAtRoot = Join-Path $PSScriptRoot "docker-compose.yml"
+  $composeAtRoot = Join-Path (Split-Path $PSScriptRoot -Parent) "docker\docker-compose.yml"
   if (Test-Path $composeAtRoot) {
     if (Get-Command docker -ErrorAction SilentlyContinue) {
       Write-Host "🗄️ 通过 Docker Compose 启动 Postgres（若未运行）" -ForegroundColor Yellow
       try {
-        Push-Location $PSScriptRoot
-        docker compose up -d db | Out-Host
+        Push-Location (Split-Path $PSScriptRoot -Parent)
+        docker compose -f "docker\docker-compose.yml" up -d postgres | Out-Host
       } catch {
         Write-Warning "[db] docker compose failed: $($_.Exception.Message)"
       } finally {
@@ -126,7 +126,7 @@ function Run-DBMigrations {
   param([string]$BackendDir,[string]$PythonExe,[int]$Retries = 10)
   if ($NoDB) { Write-Host "[db] NoDB 开关启用，跳过迁移" -ForegroundColor Yellow; return }
   # 等待 5432 端口可用
-  if (-not (Wait-ForPortUp -Port 5432 -TimeoutSec 45)) {
+  if (-not (Wait-ForPortUp -Port 5433 -TimeoutSec 45)) {
     Write-Warning "[db] 端口 5432 未就绪，可能数据库尚未启动"
   }
   for ($i=0; $i -lt $Retries; $i++) {
@@ -203,7 +203,7 @@ function Start-Frontend {
 $backendDir = Join-Path $PSScriptRoot 'backend'
 $pyExeForMigrate = Ensure-BackendVenvAndDeps
 Maybe-Start-DB
-if (-not $NoDB -and (Wait-ForPortUp -Port 5432 -TimeoutSec 45)) {
+if (-not $NoDB -and (Wait-ForPortUp -Port 5433 -TimeoutSec 45)) {
   Run-DBMigrations -BackendDir $backendDir -PythonExe $pyExeForMigrate
 } else {
   Write-Host "[db] 跳过预迁移：未启用或数据库未就绪（将继续启动后端）" -ForegroundColor DarkYellow

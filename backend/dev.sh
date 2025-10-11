@@ -17,14 +17,24 @@ if [[ -f requirements.txt ]]; then
   pip install -r requirements.txt
 fi
 
-if [[ -f ../docker-compose.yml ]] && command -v docker >/dev/null 2>&1; then
-  echo "[dev] Starting Postgres via docker compose (if not running)"
-  (cd .. && docker compose up -d db)
-  echo "[dev] Waiting for database port 5432..."
-  for i in {1..30}; do
-    (echo > /dev/tcp/127.0.0.1/5432) >/dev/null 2>&1 && break || true
-    sleep 1
-  done || true
+if command -v docker >/dev/null 2>&1; then
+  if [[ -f ../docker/docker-compose.yml ]]; then
+    echo "[dev] Starting Postgres via docker compose (docker/docker-compose.yml)"
+    (cd .. && docker compose -f docker/docker-compose.yml up -d postgres)
+    echo "[dev] Waiting for database port 5433..."
+    for i in {1..30}; do
+      (echo > /dev/tcp/127.0.0.1/5433) >/dev/null 2>&1 && break || true
+      sleep 1
+    done || true
+  elif [[ -f ../docker-compose.yml ]]; then
+    echo "[dev] Starting Postgres via docker compose (legacy root docker-compose.yml)"
+    (cd .. && docker compose up -d postgres)
+    echo "[dev] Waiting for database port 5433..."
+    for i in {1..30}; do
+      (echo > /dev/tcp/127.0.0.1/5433) >/dev/null 2>&1 && break || true
+      sleep 1
+    done || true
+  fi
 fi
 
 if [[ -f alembic.ini ]]; then

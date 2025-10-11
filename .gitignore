@@ -201,3 +201,5 @@ backend.log
 backend_new.log
 *_port.txt
 .trash/
+# Local databases
+*.db

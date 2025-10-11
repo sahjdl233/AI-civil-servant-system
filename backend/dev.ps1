@@ -23,23 +23,24 @@ function Ensure-Deps {
 }
 
 function Maybe-Start-DB {
-  $composeAtRoot = Join-Path (Split-Path $PSScriptRoot -Parent) "docker-compose.yml"
+  $root = (Split-Path $PSScriptRoot -Parent)
+  $composeAtRoot = Join-Path $root "docker\docker-compose.yml"
   if (Test-Path $composeAtRoot) {
     if (Get-Command docker -ErrorAction SilentlyContinue) {
-      Write-Host "[dev] Starting Postgres via docker compose (if not running)" -ForegroundColor Yellow
-      Push-Location (Split-Path $PSScriptRoot -Parent)
+      Write-Host "[dev] Starting Postgres via docker compose (docker/docker-compose.yml)" -ForegroundColor Yellow
+      Push-Location $root
       try {
-        docker compose up -d db | Out-Host
+        docker compose -f "docker\docker-compose.yml" up -d postgres | Out-Host
       } catch {
         Write-Warning "[dev] docker compose failed: $($_.Exception.Message)"
       } finally {
         Pop-Location
       }
-      # Wait briefly for port 5432
-      Write-Host "[dev] Waiting for database port 5432..." -ForegroundColor Yellow
+      # Wait briefly for port 5433
+      Write-Host "[dev] Waiting for database port 5433..." -ForegroundColor Yellow
       $attempts = 0
       while ($attempts -lt 30) {
-        $conn = Test-NetConnection -ComputerName localhost -Port 5432 -InformationLevel Quiet
+        $conn = Test-NetConnection -ComputerName localhost -Port 5433 -InformationLevel Quiet
         if ($conn) { break }
         Start-Sleep -Seconds 1
         $attempts++

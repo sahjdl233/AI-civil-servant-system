@@ -45,7 +45,7 @@ catch {
 
 # 启动数据库
 Write-Host "📦 启动PostgreSQL数据库..." -ForegroundColor Yellow
-docker-compose up -d postgres
+docker compose -f ".\docker\docker-compose.yml" up -d postgres
 
 # 等待数据库启动
 Start-Sleep -Seconds 5
