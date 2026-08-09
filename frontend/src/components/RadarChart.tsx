@@ -48,7 +48,7 @@ export default function RadarChart({
 
     if (dimensionKeys.length === 0) {
       // 如果没有任何数据，显示提示信息
-      ctx.fillStyle = '#666';
+      ctx.fillStyle = '#6b675c';
       ctx.font = '14px Arial';
       ctx.textAlign = 'center';
       ctx.fillText('暂无测评数据', size/2, size/2);
@@ -60,7 +60,7 @@ export default function RadarChart({
 
     // 绘制背景网格
     const gridLevels = 5; // 5个等级圆圈
-    ctx.strokeStyle = '#e5e7eb';
+    ctx.strokeStyle = '#e6e4dc';
     ctx.lineWidth = 1;
 
     for (let level = 1; level <= gridLevels; level++) {
@@ -72,7 +72,7 @@ export default function RadarChart({
     }
 
     // 绘制轴线
-    ctx.strokeStyle = '#d1d5db';
+    ctx.strokeStyle = '#d9d5ca';
     ctx.lineWidth = 1;
 
     for (let i = 0; i < dimensionKeys.length; i++) {
@@ -99,8 +99,8 @@ export default function RadarChart({
 
     // 绘制数据区域
     if (dataPoints.length > 0) {
-      ctx.fillStyle = 'rgba(59, 130, 246, 0.2)'; // 蓝色半透明
-      ctx.strokeStyle = 'rgba(59, 130, 246, 0.8)';
+      ctx.fillStyle = 'rgba(217, 119, 87, 0.18)'; // 陶土色半透明
+      ctx.strokeStyle = 'rgba(217, 119, 87, 0.75)';
       ctx.lineWidth = 2;
 
       ctx.beginPath();
@@ -114,7 +114,7 @@ export default function RadarChart({
     }
 
     // 绘制数据点
-    ctx.fillStyle = '#3b82f6';
+    ctx.fillStyle = '#d97757';
     for (const point of dataPoints) {
       ctx.beginPath();
       ctx.arc(point.x, point.y, 4, 0, 2 * Math.PI);
@@ -122,7 +122,7 @@ export default function RadarChart({
     }
 
     // 绘制标签
-    ctx.fillStyle = '#374151';
+    ctx.fillStyle = '#29261c';
     ctx.font = '12px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
@@ -143,12 +143,12 @@ export default function RadarChart({
       ctx.fillRect(x - labelWidth / 2, y - labelHeight / 2, labelWidth, labelHeight);
 
       // 绘制标签文字
-      ctx.fillStyle = '#374151';
+      ctx.fillStyle = '#29261c';
       ctx.fillText(label, x, y);
 
       // 绘制分数
       const score = values[i].toFixed(0);
-      ctx.fillStyle = '#6b7280';
+      ctx.fillStyle = '#6b675c';
       ctx.font = '10px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
       ctx.fillText(`${score}分`, x, y + 15);
     }
@@ -160,19 +160,19 @@ export default function RadarChart({
     // 确定等级颜色
     let levelColor, levelText;
     if (avgScore >= 90) {
-      levelColor = '#10b981';
+      levelColor = '#2e7d5b';
       levelText = '优秀';
     } else if (avgScore >= 80) {
-      levelColor = '#3b82f6';
+      levelColor = '#d97757';
       levelText = '良好';
     } else if (avgScore >= 70) {
-      levelColor = '#f59e0b';
+      levelColor = '#b07d2b';
       levelText = '中等';
     } else if (avgScore >= 60) {
-      levelColor = '#f97316';
+      levelColor = '#c86a4b';
       levelText = '及格';
     } else {
-      levelColor = '#ef4444';
+      levelColor = '#b3462e';
       levelText = '需提升';
     }
 
@@ -198,12 +198,12 @@ export default function RadarChart({
     <div className={`flex flex-col items-center ${className}`}>
       <canvas 
         ref={canvasRef} 
-        className="border border-gray-200 rounded-lg shadow-sm"
+        className="border border-border rounded-lg bg-surface"
         style={{ width: size, height: size }}
       />
       <div className="mt-4 text-center">
-        <p className="text-sm text-gray-600">行测题型雷达图</p>
-        <p className="text-xs text-gray-500 mt-1">
+        <p className="text-sm text-ink-secondary">行测题型雷达图</p>
+        <p className="text-xs text-ink-tertiary mt-1">
           外圈代表满分(100分)，内圈代表各题型得分
         </p>
       </div>
@@ -240,7 +240,7 @@ export function MiniRadarChart({
 
     if (dimensionKeys.length === 0) {
       // 如果没有数据，显示空状态
-      ctx.fillStyle = '#ccc';
+      ctx.fillStyle = '#9a968c';
       ctx.font = '10px Arial';
       ctx.textAlign = 'center';
       ctx.fillText('无数据', size/2, size/2);
@@ -250,7 +250,7 @@ export function MiniRadarChart({
     const angleStep = (2 * Math.PI) / dimensionKeys.length;
 
     // 绘制背景圆圈
-    ctx.strokeStyle = '#e5e7eb';
+    ctx.strokeStyle = '#e6e4dc';
     ctx.lineWidth = 1;
     for (let level = 1; level <= 3; level++) {
       const levelRadius = (radius * level) / 3;
@@ -272,8 +272,8 @@ export function MiniRadarChart({
 
     // 绘制数据区域
     if (dataPoints.length > 0) {
-      ctx.fillStyle = 'rgba(59, 130, 246, 0.3)';
-      ctx.strokeStyle = '#3b82f6';
+      ctx.fillStyle = 'rgba(217, 119, 87, 0.22)';
+      ctx.strokeStyle = '#d97757';
       ctx.lineWidth = 2;
 
       ctx.beginPath();
@@ -287,7 +287,7 @@ export function MiniRadarChart({
     }
 
     // 绘制数据点
-    ctx.fillStyle = '#3b82f6';
+    ctx.fillStyle = '#d97757';
     for (const point of dataPoints) {
       ctx.beginPath();
       ctx.arc(point.x, point.y, 2, 0, 2 * Math.PI);

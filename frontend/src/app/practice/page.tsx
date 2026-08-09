@@ -2,8 +2,18 @@
 
 import { useState, useEffect } from 'react';
 import Navigation from '../../components/Navigation';
-import Link from 'next/link';
 import { API_BASE_URL } from '../../config/api';
+import Card from '../../components/ui/Card';
+import Badge from '../../components/ui/Badge';
+import PageHeader from '../../components/ui/PageHeader';
+import Button from '../../components/ui/Button';
+import {
+  ArrowRightIcon,
+  BookIcon,
+  ChartIcon,
+  FileTextIcon,
+  SparkleIcon,
+} from '../../components/ui/icons';
 
 // 题型识别和图标映射函数
 const getTypeInfo = (typeName: string): { icon: string; color: string; displayName: string } => {
@@ -199,193 +209,172 @@ export default function PracticePage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-canvas pb-16 lg:pb-0 lg:pl-60">
       <Navigation />
-      
-      <div className="bg-gradient-to-br from-blue-50 to-indigo-100 py-12 px-4">
-        <div className="max-w-6xl mx-auto">
-          
-          {/* 页面标题 */}
-          <div className="text-center mb-12">
-            <div className="w-24 h-24 mx-auto mb-6 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center shadow-xl">
-              <svg className="w-12 h-12 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-              </svg>
-            </div>
-            
-            <h1 className="text-4xl font-bold text-gray-800 mb-4">
-              📚 题库练习系统
-            </h1>
-            <p className="text-xl text-gray-600 mb-8">
-              {loading ? "加载中..." : questionStats ? `${questionStats.total_questions}道精选真题，全面覆盖公考各个题型` : "精选真题，全面覆盖公考各个题型"}
-            </p>
-            
-            {/* 总体统计 */}
-            <div className="bg-white rounded-2xl p-6 shadow-lg border border-gray-100 max-w-2xl mx-auto">
-              {loading ? (
-                <div className="grid grid-cols-3 gap-6 text-center animate-pulse">
-                  <div>
-                    <div className="h-8 bg-gray-300 rounded mb-2"></div>
-                    <div className="text-gray-600">总题数</div>
-                  </div>
-                  <div>
-                    <div className="h-8 bg-gray-300 rounded mb-2"></div>
-                    <div className="text-gray-600">题型分类</div>
-                  </div>
-                  <div>
-                    <div className="h-8 bg-gray-300 rounded mb-2"></div>
-                    <div className="text-gray-600">文档提取</div>
-                  </div>
-                </div>
-              ) : questionStats ? (
-                <div className="grid grid-cols-3 gap-6 text-center">
-                  <div>
-                    <div className="text-3xl font-bold text-blue-600 mb-1">{questionStats.total_questions}</div>
-                    <div className="text-gray-600">总题数</div>
-                  </div>
-                  <div>
-                    <div className="text-3xl font-bold text-green-600 mb-1">{questionStats.type_distribution?.length || 0}</div>
-                    <div className="text-gray-600">题型分类</div>
-                  </div>
-                  <div>
-                    <div className="text-3xl font-bold text-purple-600 mb-1">{questionStats.total_extractions}</div>
-                    <div className="text-gray-600">文档提取</div>
-                  </div>
-                </div>
-              ) : (
-                <div className="text-center text-gray-500">加载统计数据失败</div>
-              )}
-            </div>
-          </div>
 
-          {/* 题型分类卡片 */}
-          <div id="category-section" className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
-            {loading ? (
-              // 加载中的骨架屏
-              Array.from({ length: 6 }).map((_, index) => (
-                <div key={index} className="animate-pulse">
-                  <div className="bg-white rounded-2xl p-6 shadow-lg border border-gray-100">
-                    <div className="flex items-center justify-between mb-4">
-                      <div className="w-16 h-16 bg-gray-300 rounded-full"></div>
-                      <div className="text-right">
-                        <div className="h-8 bg-gray-300 rounded w-12 mb-1"></div>
-                        <div className="h-4 bg-gray-300 rounded w-16"></div>
-                      </div>
-                    </div>
-                    <div className="h-5 bg-gray-300 rounded w-20 mb-2"></div>
-                    <div className="h-4 bg-gray-300 rounded w-32 mb-4"></div>
-                    <div className="flex items-center justify-between">
-                      <div className="h-3 bg-gray-300 rounded w-16"></div>
-                      <div className="w-5 h-5 bg-gray-300 rounded"></div>
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8">
+        <PageHeader
+          title="题库练习系统"
+          description={loading ? "加载中..." : questionStats ? `${questionStats.total_questions}道精选真题，全面覆盖公考各个题型` : "精选真题，全面覆盖公考各个题型"}
+        />
+
+        {/* 总体统计 */}
+        <Card className="p-6 mb-10">
+          {loading ? (
+            <div className="grid grid-cols-3 gap-6 text-center animate-pulse">
+              <div>
+                <div className="h-8 bg-surface-muted rounded mb-2"></div>
+                <div className="text-ink-secondary">总题数</div>
+              </div>
+              <div>
+                <div className="h-8 bg-surface-muted rounded mb-2"></div>
+                <div className="text-ink-secondary">题型分类</div>
+              </div>
+              <div>
+                <div className="h-8 bg-surface-muted rounded mb-2"></div>
+                <div className="text-ink-secondary">文档提取</div>
+              </div>
+            </div>
+          ) : questionStats ? (
+            <div className="grid grid-cols-3 gap-6 text-center">
+              <div>
+                <div className="text-3xl font-serif font-bold text-accent mb-1">{questionStats.total_questions}</div>
+                <div className="text-ink-secondary">总题数</div>
+              </div>
+              <div>
+                <div className="text-3xl font-serif font-bold text-accent mb-1">{questionStats.type_distribution?.length || 0}</div>
+                <div className="text-ink-secondary">题型分类</div>
+              </div>
+              <div>
+                <div className="text-3xl font-serif font-bold text-accent mb-1">{questionStats.total_extractions}</div>
+                <div className="text-ink-secondary">文档提取</div>
+              </div>
+            </div>
+          ) : (
+            <div className="text-center text-ink-secondary">加载统计数据失败</div>
+          )}
+        </Card>
+
+        {/* 题型分类卡片 */}
+        <div id="category-section" className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-12">
+          {loading ? (
+            Array.from({ length: 6 }).map((_, index) => (
+              <div key={index} className="animate-pulse">
+                <div className="bg-surface border border-border rounded-xl p-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="w-14 h-14 bg-surface-muted rounded-xl"></div>
+                    <div className="text-right">
+                      <div className="h-8 bg-surface-muted rounded w-12 mb-1"></div>
+                      <div className="h-4 bg-surface-muted rounded w-16"></div>
                     </div>
                   </div>
+                  <div className="h-5 bg-surface-muted rounded w-20 mb-2"></div>
+                  <div className="h-4 bg-surface-muted rounded w-32 mb-4"></div>
+                  <div className="flex items-center justify-between">
+                    <div className="h-3 bg-surface-muted rounded w-16"></div>
+                    <div className="w-5 h-5 bg-surface-muted rounded"></div>
+                  </div>
                 </div>
-              ))
-            ) : questionStats?.type_distribution ? (
-              questionStats.type_distribution.map((category, index) => {
-                const typeInfo = getTypeInfo(category.type);
-                return (
+              </div>
+            ))
+          ) : questionStats?.type_distribution ? (
+            questionStats.type_distribution.map((category, index) => {
+              const typeInfo = getTypeInfo(category.type);
+              return (
                 <div key={index} className="group cursor-pointer" onClick={() => startCategoryPractice(category.type)}>
-                  <div className="bg-white rounded-2xl p-6 shadow-lg border border-gray-100 hover:shadow-xl transform transition-all duration-300 hover:scale-105">
+                  <div className="bg-surface border border-border rounded-xl p-6 h-full hover:bg-surface-muted transition-colors duration-200">
                     <div className="flex items-center justify-between mb-4">
-                      <div className={`w-16 h-16 rounded-full bg-gradient-to-r ${typeInfo.color} flex items-center justify-center text-2xl shadow-lg`}>
+                      <div className="w-14 h-14 rounded-xl bg-surface-muted border border-border flex items-center justify-center text-2xl">
                         {typeInfo.icon}
                       </div>
                       <div className="text-right">
-                        <div className="text-2xl font-bold text-gray-800">{category.count}</div>
-                        <div className="text-sm text-gray-500">道题目</div>
+                        <div className="text-2xl font-serif font-bold text-ink">{category.count}</div>
+                        <div className="text-sm text-ink-secondary">道题目</div>
                       </div>
                     </div>
-                    
-                    <h3 className="text-lg font-semibold text-gray-800 mb-2">{typeInfo.displayName}</h3>
-                    <p className="text-gray-600 text-sm mb-4">
+
+                    <h3 className="text-lg font-serif font-semibold text-ink mb-2">{typeInfo.displayName}</h3>
+                    <p className="text-ink-secondary text-sm mb-4">
                       来自真实题库，覆盖考试重点
                     </p>
-                    
+
                     <div className="flex items-center justify-between">
-                      <span className="text-xs text-gray-500">点击开始练习</span>
-                      <svg className="w-5 h-5 text-gray-400 group-hover:text-blue-500 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                      </svg>
+                      <span className="text-xs text-ink-tertiary">点击开始练习</span>
+                      <ArrowRightIcon className="w-5 h-5 text-ink-tertiary group-hover:text-accent transition-colors" />
                     </div>
                   </div>
                 </div>
-                );
-              })
-            ) : (
-              <div className="col-span-full text-center py-12">
-                <div className="text-gray-500">暂无题型数据</div>
-              </div>
-            )}
+              );
+            })
+          ) : (
+            <div className="col-span-full text-center py-12">
+              <div className="text-ink-secondary">暂无题型数据</div>
+            </div>
+          )}
+        </div>
+
+        {/* 练习模式选择 */}
+        <h2 className="text-xl font-serif font-semibold text-ink mb-6 text-center">选择练习模式</h2>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-12">
+          <div
+            onClick={startSmartPractice}
+            className="text-center p-6 rounded-xl border border-border bg-surface hover:bg-surface-muted transition-colors cursor-pointer group"
+          >
+            <div className="w-12 h-12 mx-auto mb-4 rounded-xl bg-accent-soft text-accent flex items-center justify-center">
+              <SparkleIcon className="w-6 h-6" />
+            </div>
+            <h3 className="text-lg font-serif font-semibold text-ink mb-3">智能练习</h3>
+            <p className="text-ink-secondary text-sm mb-4">
+              基于测评结果，AI推荐最适合的题目
+            </p>
+            <Badge className="bg-accent-soft text-accent">智能推荐</Badge>
           </div>
 
-          {/* 练习模式选择 */}
-          <div className="bg-white rounded-2xl p-8 shadow-lg border border-gray-100 mb-8">
-            <h2 className="text-2xl font-bold text-gray-800 mb-6 text-center">选择练习模式</h2>
-            
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              
-              <div 
-                onClick={startSmartPractice}
-                className="text-center p-6 rounded-xl border-2 border-dashed border-gray-200 hover:border-green-300 hover:bg-green-50 transition-all cursor-pointer group"
-              >
-                <div className="text-4xl mb-4">🎯</div>
-                <h3 className="text-lg font-semibold text-gray-800 mb-3">智能练习</h3>
-                <p className="text-gray-600 text-sm mb-4">
-                  基于测评结果，AI推荐最适合的题目
-                </p>
-                <span className="inline-block bg-green-100 text-green-800 text-sm px-3 py-1 rounded-full group-hover:bg-green-200">智能推荐</span>
-              </div>
-              
-              <div 
-                onClick={() => {
-                  const categorySection = document.getElementById('category-section');
-                  if (categorySection) {
-                    categorySection.scrollIntoView({ behavior: 'smooth' });
-                  }
-                }}
-                className="text-center p-6 rounded-xl border-2 border-dashed border-gray-200 hover:border-blue-300 hover:bg-blue-50 transition-all cursor-pointer group"
-              >
-                <div className="text-4xl mb-4">📖</div>
-                <h3 className="text-lg font-semibold text-gray-800 mb-3">分类练习</h3>
-                <p className="text-gray-600 text-sm mb-4">
-                  按题型分类练习，针对性提升专项能力
-                </p>
-                <span className="inline-block bg-blue-100 text-blue-800 text-sm px-3 py-1 rounded-full group-hover:bg-blue-200">经典模式</span>
-              </div>
-              
-              <div 
-                onClick={startMockExam}
-                className="text-center p-6 rounded-xl border-2 border-dashed border-gray-200 hover:border-purple-300 hover:bg-purple-50 transition-all cursor-pointer group"
-              >
-                <div className="text-4xl mb-4">⚡</div>
-                <h3 className="text-lg font-semibold text-gray-800 mb-3">模拟考试</h3>
-                <p className="text-gray-600 text-sm mb-4">
-                  限时模拟考试环境，检验真实水平
-                </p>
-                <span className="inline-block bg-purple-100 text-purple-800 text-sm px-3 py-1 rounded-full group-hover:bg-purple-200">挑战模式</span>
-              </div>
+          <div
+            onClick={() => {
+              const categorySection = document.getElementById('category-section');
+              if (categorySection) {
+                categorySection.scrollIntoView({ behavior: 'smooth' });
+              }
+            }}
+            className="text-center p-6 rounded-xl border border-border bg-surface hover:bg-surface-muted transition-colors cursor-pointer group"
+          >
+            <div className="w-12 h-12 mx-auto mb-4 rounded-xl bg-surface-muted text-ink-secondary flex items-center justify-center">
+              <BookIcon className="w-6 h-6" />
             </div>
+            <h3 className="text-lg font-serif font-semibold text-ink mb-3">分类练习</h3>
+            <p className="text-ink-secondary text-sm mb-4">
+              按题型分类练习，针对性提升专项能力
+            </p>
+            <Badge>经典模式</Badge>
           </div>
 
-          {/* 快速入口 */}
-          <div className="text-center">
-            <h3 className="text-xl font-semibold text-gray-800 mb-6">快速入口</h3>
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Link 
-                href="/assessment"
-                className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white font-semibold py-3 px-8 rounded-xl shadow-lg hover:shadow-xl transform transition-all duration-200 hover:scale-105"
-              >
-                📊 能力测评
-              </Link>
-              <Link 
-                href="/api/v1/questions/admin/dashboard"
-                target="_blank"
-                className="bg-white border-2 border-blue-500 text-blue-600 hover:bg-blue-50 font-semibold py-3 px-8 rounded-xl shadow-md hover:shadow-lg transform transition-all duration-200 hover:scale-105"
-              >
-                🔧 题库管理后台
-              </Link>
+          <div
+            onClick={startMockExam}
+            className="text-center p-6 rounded-xl border border-border bg-surface hover:bg-surface-muted transition-colors cursor-pointer group"
+          >
+            <div className="w-12 h-12 mx-auto mb-4 rounded-xl bg-warning/10 text-warning flex items-center justify-center">
+              <FileTextIcon className="w-6 h-6" />
             </div>
+            <h3 className="text-lg font-serif font-semibold text-ink mb-3">模拟考试</h3>
+            <p className="text-ink-secondary text-sm mb-4">
+              限时模拟考试环境，检验真实水平
+            </p>
+            <Badge className="bg-warning/10 text-warning">挑战模式</Badge>
+          </div>
+        </div>
+
+        {/* 快速入口 */}
+        <div className="text-center">
+          <h3 className="text-xl font-serif font-semibold text-ink mb-6">快速入口</h3>
+          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <Button href="/assessment" size="lg">
+              <ChartIcon className="w-4 h-4" />
+              能力测评
+            </Button>
+            <Button variant="secondary" size="lg" href="/api/v1/questions/admin/dashboard" target="_blank">
+              题库管理后台
+            </Button>
           </div>
         </div>
       </div>

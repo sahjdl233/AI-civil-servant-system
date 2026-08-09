@@ -2,11 +2,25 @@
 
 import { useRef, useState } from "react";
 import Link from "next/link";
-// Removed unused imports
 
 // Import API configuration
 import { API_BASE_URL } from '../../config/api';
 import Navigation from '../../components/Navigation';
+import Button from '../../components/ui/Button';
+import Card from '../../components/ui/Card';
+import Badge from '../../components/ui/Badge';
+import ScoreBar from '../../components/ui/ScoreBar';
+import Disclosure from '../../components/ui/Disclosure';
+import PageHeader from '../../components/ui/PageHeader';
+import {
+  HistoryIcon,
+  StarIcon,
+  FileTextIcon,
+  PenIcon,
+  SparkleIcon,
+  LoaderIcon,
+  XIcon,
+} from '../../components/ui/icons';
 
 const getApiUrl = () => {
   return API_BASE_URL;
@@ -36,20 +50,6 @@ export default function EssayPage() {
   const [progress, setProgress] = useState<number>(0);
   const [statusText, setStatusText] = useState<string>("");
   const progressTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  
-  // UI state for accordion sections
-  const [accordionState, setAccordionState] = useState({
-    scoreDetails: true,    // 评分细则默认展开
-    feedback: false,       // 详细反馈默认收起  
-    suggestions: false     // 改进建议默认收起
-  });
-
-  const toggleAccordion = (section: keyof typeof accordionState) => {
-    setAccordionState(prev => ({
-      ...prev,
-      [section]: !prev[section]
-    }));
-  };
 
   const startProgress = () => {
     if (progressTimerRef.current) {
@@ -208,14 +208,14 @@ export default function EssayPage() {
                 questionType: qType,
                 questionTypeSource: qSrc,
               } as GradingResult;
-              
+
               setGradingResult((prev) => ({
                 ...finalResult,
                 scoreDetails: finalResult.scoreDetails || prev?.scoreDetails?.map(d => ({ ...d, description: sanitizeText(d.description) })),
                 questionType: finalResult.questionType ?? prev?.questionType,
                 questionTypeSource: finalResult.questionTypeSource ?? prev?.questionTypeSource,
               }));
-              
+
               // 保存学习记录到localStorage
               try {
                 const recordId = `essay_result_${Date.now()}`;
@@ -322,7 +322,7 @@ export default function EssayPage() {
       }
       setGradingResult(normalized);
       setStatusText("完成评估");
-      
+
       // 保存学习记录到localStorage (fallback模式)
       try {
         const recordId = `essay_result_${Date.now()}`;
@@ -337,7 +337,7 @@ export default function EssayPage() {
       } catch (error) {
         console.log('保存学习记录失败 (fallback):', error);
       }
-      
+
       finishProgress();
     } catch (error) {
       console.error("评分失败:", error);
@@ -357,8 +357,6 @@ export default function EssayPage() {
   };
 
   // Display normalization: scale "fullScore" so that totals sum to 100
-  // Prefer ReactMarkdown rendering to preserve structure and bullets
-
   const displayScale = gradingResult?.scoreDetails?.length
     ? (() => {
         const raw = gradingResult.scoreDetails!.reduce((sum, d) => sum + d.fullScore, 0);
@@ -366,495 +364,360 @@ export default function EssayPage() {
       })()
     : 1;
 
-  // Removed unused handleSubmit function
+  // Convert markdown-ish plain text to safe HTML (presentation only)
+  const renderRichText = (text: string, size: "sm" | "base") =>
+    text
+      .replace(/\\n/g, '\n')
+      .replace(/\r\n/g, '\n')
+      .replace(/\n\n+/g, '</p><p class="mt-3">')
+      .replace(/\n/g, '<br/>')
+      .replace(/\*\*(.*?)\*\*/g, '<strong class="text-ink font-semibold">$1</strong>')
+      .replace(/^/, `<p class="${size === "sm" ? "text-[0.875rem]" : "text-[0.9375rem]"}">`)
+      .replace(/$/, '</p>');
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-canvas pb-16 lg:pb-0 lg:pl-60">
       <Navigation />
-      
-      <div className="bg-gradient-to-br from-blue-50 to-indigo-100 py-8 px-4">
-        <div className="max-w-7xl mx-auto">
-          {/* 页面标题 */}
-          <div className="relative text-center mb-8">
-            {/* 历史记录按钮 - 右上角 */}
-            <div className="absolute top-0 right-0">
-              <Link 
-                href="/history"
-                className="inline-flex items-center px-4 py-2 rounded-xl bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 hover:border-blue-300 hover:text-blue-600 shadow-sm transition-all duration-200 group"
-              >
-                <svg className="w-5 h-5 mr-2 text-gray-500 group-hover:text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
-                <span className="text-sm font-medium">批改历史</span>
-              </Link>
+
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8">
+        <PageHeader
+          title="申论智能批改"
+          description="AI 专家级批改，个性化学习建议，渐进式反馈，助力公考申论高分突破。"
+          actions={
+            <Link
+              href="/history"
+              className="inline-flex items-center gap-2 h-10 px-4 rounded-lg bg-surface border border-border text-ink-secondary hover:text-ink hover:bg-surface-muted transition-colors text-sm flex-shrink-0"
+            >
+              <HistoryIcon className="w-4 h-4" />
+              批改历史
+            </Link>
+          }
+        />
+
+        <div className="grid grid-cols-1 xl:grid-cols-[2fr_3fr] gap-6 items-start">
+          {/* 左栏：输入区域 */}
+          <Card className="p-5 sm:p-6">
+            <h2 className="text-lg font-medium text-ink mb-5">输入区域</h2>
+
+            {/* 题目材料和问题输入区域 */}
+            <div className="mb-6">
+              <label htmlFor="questionMaterial" className="block text-sm font-medium text-ink mb-2">
+                题目材料与问题
+              </label>
+              <div className="relative">
+                <textarea
+                  id="questionMaterial"
+                  value={questionMaterial}
+                  onChange={(e) => setQuestionMaterial(e.target.value)}
+                  placeholder="在此粘贴或输入题目给定材料及具体问题要求..."
+                  className="w-full min-h-[220px] p-3.5 pr-10 border border-border rounded-lg focus:border-accent focus:ring-2 focus:ring-accent/15 outline-none resize-y text-ink placeholder:text-ink-tertiary leading-relaxed text-sm bg-surface"
+                />
+                {questionMaterial && (
+                  <button
+                    onClick={() => setQuestionMaterial("")}
+                    type="button"
+                    aria-label="清空题目材料"
+                    className="absolute top-2.5 right-2.5 p-1.5 text-ink-tertiary hover:text-ink hover:bg-surface-muted rounded-md transition-colors"
+                  >
+                    <XIcon className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
+              <div className="text-right text-xs text-ink-tertiary mt-1.5">
+                字数 {questionMaterial.length}
+              </div>
             </div>
-            
-            <h1 className="text-4xl font-bold text-gray-800 mb-2">
-              ✏️ 申论智能批改
-            </h1>
-            <p className="text-gray-600 text-lg">
-              AI专家级批改，个性化学习建议，助力公考申论高分突破
-            </p>
-          </div>
 
-          {/* 左右分栏布局 - 左小右大 */}
-          <div className="grid grid-cols-1 xl:grid-cols-[2fr_3fr] gap-8">
-            {/* 左栏：输入区域 */}
-            <div className="bg-white rounded-2xl shadow-lg border border-gray-200 p-8">
-              <h2 className="text-2xl font-bold text-gray-800 mb-6 flex items-center">
-                <div className="w-4 h-4 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full mr-4 shadow-sm"></div>
-                输入区域
-              </h2>
+            {/* 我的答案输入区域 */}
+            <div className="mb-6">
+              <label htmlFor="myAnswer" className="block text-sm font-medium text-ink mb-2">
+                我的作答
+              </label>
+              <div className="relative">
+                <textarea
+                  id="myAnswer"
+                  value={myAnswer}
+                  onChange={(e) => setMyAnswer(e.target.value)}
+                  placeholder="在此输入您对上述问题的答题内容..."
+                  className="w-full min-h-[220px] p-3.5 pr-10 border border-border rounded-lg focus:border-accent focus:ring-2 focus:ring-accent/15 outline-none resize-y text-ink placeholder:text-ink-tertiary leading-relaxed text-sm bg-surface"
+                />
+                {myAnswer && (
+                  <button
+                    onClick={() => setMyAnswer("")}
+                    type="button"
+                    aria-label="清空作答"
+                    className="absolute top-2.5 right-2.5 p-1.5 text-ink-tertiary hover:text-ink hover:bg-surface-muted rounded-md transition-colors"
+                  >
+                    <XIcon className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
+              <div className="text-right text-xs text-ink-tertiary mt-1.5">
+                字数 {myAnswer.length}
+              </div>
+            </div>
 
-              {/* 题目材料和问题输入区域 */}
+            {/* 进度条 */}
+            {isLoading && (
               <div className="mb-6">
-                <label htmlFor="questionMaterial" className="block text-lg font-semibold text-gray-700 mb-3">
-                  请输入题目材料和问题：
-                </label>
-                <div className="relative">
-                  <textarea
-                    id="questionMaterial"
-                    value={questionMaterial}
-                    onChange={(e) => setQuestionMaterial(e.target.value)}
-                    placeholder="在此粘贴或输入题目给定材料及具体问题要求..."
-                    className="w-full h-64 p-4 pr-12 border-2 border-gray-300 rounded-xl focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none resize-y text-gray-700 leading-relaxed"
-                  />
-                  {questionMaterial && (
-                    <button
-                      onClick={() => setQuestionMaterial("")}
-                      className="absolute top-3 right-3 p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
-                      type="button"
-                    >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                      </svg>
-                    </button>
-                  )}
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm text-ink-secondary">
+                    {statusText || "AI 正在分析中..."}
+                  </span>
+                  <span className="text-sm font-medium text-ink">
+                    {Math.min(100, Math.round(progress))}%
+                  </span>
                 </div>
-                <div className="text-right text-sm text-gray-500 mt-2">
-                  字数: {questionMaterial.length}
-                </div>
+                <ScoreBar value={progress} className="h-2" />
               </div>
+            )}
 
-              {/* 我的答案输入区域 */}
-              <div className="mb-8">
-                <label htmlFor="myAnswer" className="block text-lg font-semibold text-gray-700 mb-3">
-                  请输入您的答案：
-                </label>
-                <div className="relative">
-                  <textarea
-                    id="myAnswer"
-                    value={myAnswer}
-                    onChange={(e) => setMyAnswer(e.target.value)}
-                    placeholder="在此输入您对上述问题的答题内容..."
-                    className="w-full h-64 p-4 pr-12 border-2 border-gray-300 rounded-xl focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none resize-y text-gray-700 leading-relaxed"
-                  />
-                  {myAnswer && (
-                    <button
-                      onClick={() => setMyAnswer("")}
-                      className="absolute top-3 right-3 p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
-                      type="button"
-                    >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                      </svg>
-                    </button>
-                  )}
-                </div>
-                <div className="text-right text-sm text-gray-500 mt-2">
-                  字数: {myAnswer.length}
-                </div>
-              </div>
-
-              {/* 进度条 */}
-              {isLoading && (
-                <div className="mb-6">
-                  <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
-                    <div
-                      className="bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 h-3 rounded-full transition-all duration-200 ease-out"
-                      style={{ width: `${Math.min(100, Math.round(progress))}%` }}
-                    />
-                  </div>
-                  <div className="mt-3 text-sm text-gray-600 flex items-center justify-between">
-                    <span>{statusText || "处理中..."}</span>
-                    <span>{Math.min(100, Math.round(progress))}%</span>
-                  </div>
-                </div>
-              )}
-
-              {/* 提交按钮 */}
-              <div className="text-center">
-                <button
-                  onClick={handleSubmitStream}
-                  disabled={isLoading || !questionMaterial.trim() || !myAnswer.trim()}
-                  className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white font-semibold py-4 px-8 rounded-xl transition-colors duration-200 shadow-lg hover:shadow-xl"
-                >
-                  {isLoading ? "批改中..." : "开始AI批改"}
-                </button>
-              </div>
-            </div>
-
-            {/* 右栏：结果展示区域 */}
-            <div className="bg-white rounded-2xl shadow-lg border border-gray-200">
-              {!gradingResult ? (
-                !isLoading ? (
-                  <div className="h-full flex items-center justify-center p-8">
-                    <div className="text-center">
-                      <div className="w-32 h-32 mx-auto mb-8 rounded-full bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center shadow-sm">
-                        <svg className="w-16 h-16 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                      </div>
-                      <div className="text-2xl font-bold text-gray-600 mb-4">等待批改结果</div>
-                      <div className="text-lg text-gray-500">请先在左侧输入题目和答案</div>
-                    </div>
-                  </div>
+            {/* 提交按钮：手机端吸底 */}
+            <div className="sticky bottom-20 lg:static pt-1">
+              <Button
+                onClick={handleSubmitStream}
+                disabled={isLoading || !questionMaterial.trim() || !myAnswer.trim()}
+                className="w-full"
+                size="lg"
+              >
+                {isLoading ? (
+                  <>
+                    <LoaderIcon className="w-4 h-4 animate-spin" />
+                    批改中...
+                  </>
                 ) : (
-                  // 加载中的骨架屏
-                  <div className="p-8 animate-pulse">
-                    <div className="mb-6">
-                      <div className="flex items-center justify-between mb-4">
-                        <div className="flex items-center">
-                          <div className="w-4 h-4 bg-gradient-to-r from-green-400 to-emerald-400 rounded-full mr-4 shadow-sm"></div>
-                          <div className="h-6 bg-gray-300 rounded w-24"></div>
-                        </div>
-                        <div className="h-5 bg-gray-200 rounded w-20"></div>
-                      </div>
-                    </div>
-                    
-                    {/* 模拟综合评分骨架 */}
-                    <div className="mb-8">
-                      <div className="bg-gray-50 rounded-xl p-6 border border-gray-200">
-                        <div className="flex items-center justify-between mb-4">
-                          <div className="flex items-center">
-                            <div className="w-6 h-6 bg-amber-200 rounded mr-3"></div>
-                            <div className="h-5 bg-gray-300 rounded w-20"></div>
-                          </div>
-                          <div className="text-right">
-                            <div className="h-10 bg-gradient-to-r from-blue-200 to-purple-200 rounded w-16"></div>
-                          </div>
-                        </div>
-                        <div className="w-full bg-gray-200 rounded-full h-4 mb-2">
-                          <div className="bg-gradient-to-r from-blue-300 via-purple-300 to-pink-300 h-4 rounded-full w-3/4 animate-pulse"></div>
-                        </div>
-                        <div className="flex justify-between">
-                          <div className="h-3 bg-gray-300 rounded w-8"></div>
-                          <div className="h-3 bg-gray-300 rounded w-12"></div>
-                        </div>
-                      </div>
-                    </div>
-                    
-                    {/* 模拟手风琴标题骨架 */}
-                    <div className="space-y-4">
-                      <div className="flex items-center justify-between p-2 rounded-lg bg-gray-50">
-                        <div className="flex items-center">
-                          <div className="w-5 h-5 bg-indigo-200 rounded mr-2"></div>
-                          <div className="h-5 bg-gray-300 rounded w-20"></div>
-                        </div>
-                        <div className="w-5 h-5 bg-gray-300 rounded"></div>
-                      </div>
-                      <div className="flex items-center justify-between p-2 rounded-lg bg-gray-50">
-                        <div className="flex items-center">
-                          <div className="w-5 h-5 bg-green-200 rounded mr-2"></div>
-                          <div className="h-5 bg-gray-300 rounded w-20"></div>
-                        </div>
-                        <div className="w-5 h-5 bg-gray-300 rounded"></div>
-                      </div>
-                      <div className="flex items-center justify-between p-2 rounded-lg bg-gray-50">
-                        <div className="flex items-center">
-                          <div className="w-5 h-5 bg-blue-200 rounded mr-2"></div>
-                          <div className="h-5 bg-gray-300 rounded w-20"></div>
-                        </div>
-                        <div className="w-5 h-5 bg-gray-300 rounded"></div>
-                      </div>
-                    </div>
-                    
-                    <div className="mt-8 text-center">
-                      <div className="text-lg text-gray-500">AI 正在智能分析中...</div>
-                      <div className="text-sm text-gray-400 mt-2">{statusText}</div>
-                    </div>
+                  "开始 AI 批改"
+                )}
+              </Button>
+            </div>
+          </Card>
+
+          {/* 右栏：结果展示区域 */}
+          <div>
+            {!gradingResult ? (
+              !isLoading ? (
+                /* 空状态 */
+                <div className="rounded-xl border border-dashed border-border bg-surface px-6 py-16 text-center">
+                  <div className="w-12 h-12 mx-auto mb-4 rounded-full bg-surface-muted flex items-center justify-center">
+                    <SparkleIcon className="w-6 h-6 text-ink-tertiary" />
                   </div>
-                )
+                  <p className="font-serif text-lg text-ink">等待批改结果</p>
+                  <p className="mt-1 text-sm text-ink-tertiary">请先在左侧输入题目和作答</p>
+                </div>
               ) : (
-                <div className="p-8 animate-fade-in"
-                  style={{
-                    animation: 'fadeInUp 0.6s ease-out forwards',
-                    opacity: 0,
-                    transform: 'translateY(20px)'
-                  }}
-                  onAnimationEnd={(e) => {
-                    const target = e.target as HTMLElement;
-                    target.style.opacity = '1';
-                    target.style.transform = 'translateY(0)';
-                  }}
-                >
+                /* 加载中的骨架屏 */
+                <div className="rounded-xl border border-border bg-surface p-5 animate-pulse">
+                  <div className="flex items-center justify-between mb-5">
+                    <div className="h-5 bg-surface-muted rounded w-24"></div>
+                    <div className="h-4 bg-surface-muted rounded w-16"></div>
+                  </div>
+
                   <div className="mb-6">
-                    {gradingResult?.questionType && (
-                      <div className="mb-4">
-                        <span className="inline-flex items-center text-sm text-gray-700 bg-white px-3 py-1 rounded-full border border-gray-200">
-                          识别题型：{gradingResult.questionType}
-                          {gradingResult.questionTypeSource === "ai" && (
-                            <span className="ml-2 text-xs text-blue-600">(AI 识别)</span>
-                          )}
-                        </span>
-                      </div>
-                    )}
-                    <div className="flex items-center justify-between">
-                      <h2 className="text-2xl font-bold text-gray-800 flex items-center">
-                        <div className="w-4 h-4 bg-gradient-to-r from-green-500 to-emerald-500 rounded-full mr-4 shadow-sm"></div>
-                        批改结果
-                      </h2>
-                      <div className="text-sm text-gray-500 bg-gray-100 px-3 py-1 rounded-full border border-gray-200">
-                        AI 智能分析
-                      </div>
+                    <div className="h-10 bg-surface-muted rounded-lg w-40 mb-3"></div>
+                    <div className="h-2.5 bg-surface-muted rounded-full w-full mb-2"></div>
+                    <div className="flex justify-between">
+                      <div className="h-3 bg-surface-muted rounded w-8"></div>
+                      <div className="h-3 bg-surface-muted rounded w-12"></div>
                     </div>
                   </div>
 
-                {/* 分数显示 */}
-                <div className="mb-8">
-                  <div className="bg-white rounded-xl p-6 border border-gray-200 shadow-sm">
-                    <div className="flex items-center justify-between mb-4">
-                      <div className="flex items-center">
-                        <svg className="w-6 h-6 mr-3 text-amber-500" fill="currentColor" viewBox="0 0 20 20">
-                          <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                        </svg>
-                        <span className="text-lg font-semibold text-gray-700">综合评分</span>
-                      </div>
-                      <div className="text-right">
-                        <span className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-                          {gradingResult.score}
-                        </span>
-                        <span className="text-lg text-gray-500 ml-1">分</span>
-                      </div>
-                    </div>
-                    <div className="w-full bg-gray-200 rounded-full h-4 overflow-hidden">
-                      <div
-                        className="bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 h-4 rounded-full transition-all duration-1000 ease-out shadow-sm"
-                        style={{ width: `${gradingResult.score}%` }}
-                      ></div>
-                    </div>
-                    <div className="flex justify-between text-sm text-gray-500 mt-2">
-                      <span>0分</span>
-                      <span>100分</span>
-                    </div>
+                  <div className="space-y-3">
+                    <div className="h-6 bg-surface-muted rounded-lg w-full"></div>
+                    <div className="h-6 bg-surface-muted rounded-lg w-5/6"></div>
+                    <div className="h-6 bg-surface-muted rounded-lg w-4/6"></div>
+                  </div>
+
+                  <div className="mt-8 text-center">
+                    <p className="text-base text-ink-secondary">AI 正在智能分析中...</p>
+                    <p className="text-sm text-ink-tertiary mt-1.5">{statusText}</p>
                   </div>
                 </div>
+              )
+            ) : (
+              <div className="animate-fade-in">
+                {/* 题型识别 */}
+                {gradingResult.questionType && (
+                  <div className="mb-4 flex items-center gap-2 flex-wrap">
+                    <Badge>
+                      <SparkleIcon className="w-3 h-3" />
+                      识别题型：{gradingResult.questionType}
+                    </Badge>
+                    {gradingResult.questionTypeSource === "ai" && <Badge>AI 识别</Badge>}
+                  </div>
+                )}
+
+                {/* 综合评分 */}
+                <Card className="p-5 mb-5">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      <StarIcon className="w-5 h-5 text-warning" />
+                      <span className="text-base font-medium text-ink">综合评分</span>
+                    </div>
+                    <div className="text-right">
+                      <span className="font-serif text-4xl font-semibold text-ink">
+                        {gradingResult.score}
+                      </span>
+                      <span className="text-base text-ink-tertiary ml-1">分</span>
+                    </div>
+                  </div>
+                  <ScoreBar value={gradingResult.score} className="h-2.5" />
+                  <div className="flex justify-between text-xs text-ink-tertiary mt-2">
+                    <span>0 分</span>
+                    <span>100 分</span>
+                  </div>
+                </Card>
 
                 {/* 评分细则 */}
                 {gradingResult.scoreDetails && gradingResult.scoreDetails.length > 0 && (
-                  <div className="mb-8">
-                    <button 
-                      onClick={() => toggleAccordion('scoreDetails')}
-                      className="w-full text-left text-lg font-semibold text-gray-700 mb-4 flex items-center justify-between hover:text-gray-900 transition-colors p-2 rounded-lg hover:bg-gray-50"
+                  <Card className="mb-5 overflow-hidden">
+                    <Disclosure
+                      title="评分细则"
+                      defaultOpen
+                      icon={<FileTextIcon className="w-5 h-5 text-accent" />}
                     >
-                      <div className="flex items-center">
-                        <svg className="w-5 h-5 mr-2 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
-                        </svg>
-                        评分细则
+                      {/* 桌面端表格 */}
+                      <div className="hidden md:block overflow-x-auto">
+                        <table className="w-full text-sm">
+                          <thead>
+                            <tr className="border-b border-border">
+                              <th className="text-left py-2.5 pr-4 font-medium text-ink-tertiary text-xs">评分项</th>
+                              <th className="text-center py-2.5 px-2 font-medium text-ink-tertiary text-xs">满分</th>
+                              <th className="text-center py-2.5 px-2 font-medium text-ink-tertiary text-xs">得分</th>
+                              <th className="text-left py-2.5 pl-4 font-medium text-ink-tertiary text-xs">评分说明</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-border">
+                            {gradingResult.scoreDetails.map((detail, index) => {
+                              const scaledFull = Number((detail.fullScore * displayScale).toFixed(1));
+                              const scorePercentage = (detail.actualScore / (scaledFull || 1)) * 100;
+                              const tone = scorePercentage >= 80
+                                ? "success"
+                                : scorePercentage >= 60
+                                ? "warning"
+                                : "danger";
+                              return (
+                                <tr key={index} className="align-top">
+                                  <td className="py-3.5 pr-4 whitespace-nowrap font-medium text-ink">
+                                    {detail.item}
+                                  </td>
+                                  <td className="py-3.5 px-2 text-center text-ink-secondary">
+                                    {scaledFull} 分
+                                  </td>
+                                  <td className="py-3.5 px-2 text-center">
+                                    <span className={`font-semibold ${
+                                      tone === "success"
+                                        ? "text-success"
+                                        : tone === "warning"
+                                        ? "text-warning"
+                                        : "text-danger"
+                                    }`}>
+                                      {detail.actualScore} 分
+                                    </span>
+                                    <ScoreBar
+                                      value={scorePercentage}
+                                      tone={tone}
+                                      className="h-1.5 mt-1.5"
+                                    />
+                                  </td>
+                                  <td className="py-3.5 pl-4 text-ink-secondary">
+                                    <div
+                                      className="ai-feedback-content leading-loose"
+                                      dangerouslySetInnerHTML={{
+                                        __html: renderRichText(detail.description, "sm"),
+                                      }}
+                                    />
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
                       </div>
-                      <svg 
-                        className={`w-5 h-5 text-gray-500 transition-transform duration-200 ${accordionState.scoreDetails ? 'rotate-180' : ''}`} 
-                        fill="none" 
-                        stroke="currentColor" 
-                        viewBox="0 0 24 24"
-                      >
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                      </svg>
-                    </button>
-                    {accordionState.scoreDetails && (
-                      <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden transition-all duration-300 ease-in-out">
-                        <div className="overflow-x-auto">
-                          <table className="w-full">
-                            <thead className="bg-gray-50 border-b border-gray-200">
-                              <tr>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">评分项</th>
-                                <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">满分</th>
-                                <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">得分</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">评分说明</th>
-                              </tr>
-                            </thead>
-                            <tbody className="bg-white divide-y divide-gray-200">
-                              {gradingResult.scoreDetails.map((detail, index) => {
-                                const scaledFull = Number((detail.fullScore * displayScale).toFixed(1));
-                                const scorePercentage = (detail.actualScore / (scaledFull || 1)) * 100;
-                                const getScoreColor = () => {
-                                  if (scorePercentage >= 80) return "text-green-600";
-                                  if (scorePercentage >= 60) return "text-yellow-600";
-                                  return "text-red-600";
-                                };
-                                
-                                return (
-                                  <tr key={index} className="hover:bg-gray-50 transition-colors">
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                                      {detail.item}
-                                    </td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-center text-gray-500">
-                                      {Number((detail.fullScore * displayScale).toFixed(1))}分
-                                    </td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-center">
-                                      <span className={`text-sm font-semibold ${getScoreColor()}`}>
-                                        {detail.actualScore}分
-                                      </span>
-                                      <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
-                                        <div
-                                          className={`h-2 rounded-full transition-all duration-500 ${
-                                            scorePercentage >= 80 ? "bg-green-500" :
-                                            scorePercentage >= 60 ? "bg-yellow-500" : "bg-red-500"
-                                          }`}
-                                          style={{ width: `${scorePercentage}%` }}
-                                        ></div>
-                                      </div>
-                                    </td>
-                                    <td className="px-6 py-4 text-sm text-gray-700">
-                                      <div className="leading-loose">
-                                        <div 
-                                          className="ai-feedback-content"
-                                          style={{
-                                            lineHeight: '1.8',
-                                          }}
-                                          dangerouslySetInnerHTML={{ 
-                                            __html: detail.description
-                                              .replace(/\\n/g, '\n')  // 首先将字面量\n转换为真实换行符
-                                              .replace(/\r\n/g, '\n')
-                                              .replace(/\n\n+/g, '</p><p class="mb-3 mt-3">')
-                                              .replace(/\n/g, '<br/>')
-                                              .replace(/\*\*(.*?)\*\*/g, '<strong class="text-blue-700 font-medium">$1</strong>')
-                                              .replace(/^/, '<p class="mb-3">')
-                                              .replace(/$/, '</p>')
-                                          }}
-                                        />
-                                      </div>
-                                    </td>
-                                  </tr>
-                                );
-                              })}
-                            </tbody>
-                            <tfoot className="bg-gray-50 border-t-2 border-gray-300">
-                              <tr>
-                                <td className="px-6 py-3 text-sm font-semibold text-gray-900">总计</td>
-                                <td className="px-6 py-3 text-center text-sm font-semibold text-gray-900">
-                                  {Number((gradingResult.scoreDetails.reduce((sum, detail) => sum + detail.fullScore * displayScale, 0)).toFixed(1))}分
-                                </td>
-                                <td className="px-6 py-3 text-center text-sm font-bold text-blue-600">
-                                  {gradingResult.scoreDetails.reduce((sum, detail) => sum + detail.actualScore, 0)}分
-                                </td>
-                                <td className="px-6 py-3 text-sm text-gray-500">
-                                  综合得分率：{Math.round((gradingResult.scoreDetails.reduce((sum, detail) => sum + detail.actualScore, 0) / Math.max(1,
-                                    gradingResult.scoreDetails.reduce((sum, detail) => sum + detail.fullScore * displayScale, 0))) * 100)}%
-                                </td>
-                              </tr>
-                            </tfoot>
-                          </table>
-                        </div>
+
+                      {/* 移动端卡片 */}
+                      <div className="md:hidden space-y-3">
+                        {gradingResult.scoreDetails.map((detail, index) => {
+                          const scaledFull = Number((detail.fullScore * displayScale).toFixed(1));
+                          const scorePercentage = (detail.actualScore / (scaledFull || 1)) * 100;
+                          const tone = scorePercentage >= 80
+                            ? "success"
+                            : scorePercentage >= 60
+                            ? "warning"
+                            : "danger";
+                          return (
+                            <div key={index} className="rounded-lg border border-border p-3.5">
+                              <div className="flex items-center justify-between gap-2">
+                                <span className="font-medium text-ink text-sm">{detail.item}</span>
+                                <span className={`text-sm font-semibold ${
+                                  tone === "success"
+                                    ? "text-success"
+                                    : tone === "warning"
+                                    ? "text-warning"
+                                    : "text-danger"
+                                }`}>
+                                  {detail.actualScore} / {scaledFull} 分
+                                </span>
+                              </div>
+                              <ScoreBar value={scorePercentage} tone={tone} className="h-1.5 mt-2" />
+                              <div
+                                className="ai-feedback-content leading-loose mt-2"
+                                dangerouslySetInnerHTML={{
+                                  __html: renderRichText(detail.description, "sm"),
+                                }}
+                              />
+                            </div>
+                          );
+                        })}
                       </div>
-                    )}
-                  </div>
+                    </Disclosure>
+                  </Card>
                 )}
 
                 {/* 详细反馈 */}
                 {gradingResult.feedback && (
-                  <div className="mb-8">
-                    <button 
-                      onClick={() => toggleAccordion('feedback')}
-                      className="w-full text-left text-lg font-semibold text-gray-700 mb-4 flex items-center justify-between hover:text-gray-900 transition-colors p-2 rounded-lg hover:bg-gray-50"
+                  <Card className="mb-5 overflow-hidden">
+                    <Disclosure
+                      title="详细反馈"
+                      icon={<PenIcon className="w-5 h-5 text-accent" />}
                     >
-                      <div className="flex items-center">
-                        <svg className="w-5 h-5 mr-2 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
-                        </svg>
-                        详细反馈
-                      </div>
-                      <svg 
-                        className={`w-5 h-5 text-gray-500 transition-transform duration-200 ${accordionState.feedback ? 'rotate-180' : ''}`} 
-                        fill="none" 
-                        stroke="currentColor" 
-                        viewBox="0 0 24 24"
-                      >
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                      </svg>
-                    </button>
-                    {accordionState.feedback && (
-                      <div className="bg-white rounded-xl p-6 border border-gray-200 shadow-sm transition-all duration-300 ease-in-out">
-                        <div className="text-gray-700">
-                          <div 
-                            className="ai-feedback-content"
-                            style={{
-                              lineHeight: '1.9',
-                            }}
-                            dangerouslySetInnerHTML={{ 
-                              __html: gradingResult.feedback
-                                .replace(/\\n/g, '\n')  // 首先将字面量\n转换为真实换行符
-                                .replace(/\r\n/g, '\n')
-                                .replace(/\n\n+/g, '</p><p class="mb-5 mt-5">')
-                                .replace(/\n/g, '<br/>')
-                                .replace(/\*\*(.*?)\*\*/g, '<strong class="text-blue-700 font-semibold">$1</strong>')
-                                .replace(/^/, '<p class="mb-5">')
-                                .replace(/$/, '</p>')
-                            }}
-                          />
-                        </div>
-                      </div>
-                    )}
-                  </div>
+                      <div
+                        className="ai-feedback-content"
+                        style={{ lineHeight: 1.9 }}
+                        dangerouslySetInnerHTML={{
+                          __html: renderRichText(gradingResult.feedback, "base"),
+                        }}
+                      />
+                    </Disclosure>
+                  </Card>
                 )}
 
                 {/* 改进建议 */}
                 {gradingResult.suggestions && gradingResult.suggestions.length > 0 && (
-                  <div className="mb-8">
-                    <button 
-                      onClick={() => toggleAccordion('suggestions')}
-                      className="w-full text-left text-lg font-semibold text-gray-700 mb-4 flex items-center justify-between hover:text-gray-900 transition-colors p-2 rounded-lg hover:bg-gray-50"
+                  <Card className="overflow-hidden">
+                    <Disclosure
+                      title="改进建议"
+                      icon={<SparkleIcon className="w-5 h-5 text-accent" />}
                     >
-                      <div className="flex items-center">
-                        <svg className="w-5 h-5 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-                        </svg>
-                        改进建议
-                      </div>
-                      <svg 
-                        className={`w-5 h-5 text-gray-500 transition-transform duration-200 ${accordionState.suggestions ? 'rotate-180' : ''}`} 
-                        fill="none" 
-                        stroke="currentColor" 
-                        viewBox="0 0 24 24"
-                      >
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                      </svg>
-                    </button>
-                    {accordionState.suggestions && (
-                      <div className="bg-white rounded-xl p-6 border border-gray-200 shadow-sm transition-all duration-300 ease-in-out">
-                        <ul className="space-y-5">
-                          {gradingResult.suggestions.map((suggestion, index) => (
-                            <li key={index} className="flex items-start">
-                              <div className="flex-shrink-0 w-7 h-7 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center mr-4 mt-1 shadow-sm">
-                                <span className="text-white text-sm font-bold">{index + 1}</span>
-                              </div>
-                              <div 
-                                className="text-gray-700 flex-1"
-                                style={{
-                                  lineHeight: '1.8',
-                                }}
-                                dangerouslySetInnerHTML={{
-                                  __html: suggestion
-                                    .replace(/\\n/g, '\n')  // 首先将字面量\n转换为真实换行符
-                                    .replace(/\r\n/g, '\n')
-                                    .replace(/\n\n+/g, '</p><p class="mb-4 mt-4">')
-                                    .replace(/\n/g, '<br/>')
-                                    .replace(/\*\*(.*?)\*\*/g, '<strong class="text-blue-700 font-medium">$1</strong>')
-                                    .replace(/^/, '<p class="mb-4">')
-                                    .replace(/$/, '</p>')
-                                }}
-                              />
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
-                  </div>
+                      <ul className="space-y-4">
+                        {gradingResult.suggestions.map((suggestion, index) => (
+                          <li key={index} className="flex items-start gap-3">
+                            <span className="flex-shrink-0 w-6 h-6 rounded-full bg-accent-soft text-accent flex items-center justify-center text-xs font-semibold mt-0.5">
+                              {index + 1}
+                            </span>
+                            <div
+                              className="ai-feedback-content flex-1 leading-loose"
+                              dangerouslySetInnerHTML={{
+                                __html: renderRichText(suggestion, "base"),
+                              }}
+                            />
+                          </li>
+                        ))}
+                      </ul>
+                    </Disclosure>
+                  </Card>
                 )}
-                </div>
-              )}
-            </div>
+              </div>
+            )}
           </div>
         </div>
       </div>

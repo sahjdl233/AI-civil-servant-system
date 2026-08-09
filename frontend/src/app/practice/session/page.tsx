@@ -4,6 +4,10 @@ import { useState, useEffect, useCallback } from 'react';
 import Navigation from '../../../components/Navigation';
 import { API_BASE_URL } from '../../../config/api';
 import Image from 'next/image';
+import Card from '../../../components/ui/Card';
+import Badge from '../../../components/ui/Badge';
+import Button from '../../../components/ui/Button';
+import { CheckIcon, LoaderIcon } from '../../../components/ui/icons';
 
 // 练习配置接口
 interface PracticeConfig {
@@ -292,12 +296,12 @@ export default function PracticeSessionPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50">
+      <div className="min-h-screen bg-canvas pb-16 lg:pb-0 lg:pl-60">
         <Navigation />
         <div className="flex items-center justify-center min-h-screen">
           <div className="text-center">
-            <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-500 mx-auto mb-4"></div>
-            <h2 className="text-xl font-semibold text-gray-800">正在准备题目...</h2>
+            <LoaderIcon className="animate-spin w-10 h-10 text-accent mx-auto mb-4" />
+            <h2 className="text-lg font-medium text-ink">正在准备题目...</h2>
           </div>
         </div>
       </div>
@@ -307,78 +311,71 @@ export default function PracticeSessionPage() {
   // 结果页面
   if (submitted && result) {
     return (
-      <div className="min-h-screen bg-gray-50">
+      <div className="min-h-screen bg-canvas pb-16 lg:pb-0 lg:pl-60">
         <Navigation />
-        
-        <div className="bg-gradient-to-br from-blue-50 to-indigo-100 py-12 px-4">
-          <div className="max-w-4xl mx-auto">
-            
-            {/* 练习完成标题 */}
-            <div className="text-center mb-12">
-              <div className="w-24 h-24 mx-auto mb-6 rounded-full bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center shadow-xl">
-                <svg className="w-12 h-12 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              </div>
-              
-              <h1 className="text-4xl font-bold text-gray-800 mb-4">
-                🎉 练习完成！
-              </h1>
-              <p className="text-xl text-gray-600">
-                {config?.mode === 'category' && '分类练习'}
-                {config?.mode === 'smart' && '智能推荐练习'}
-                {config?.mode === 'mock_exam' && '模拟考试'}
-                结果统计
-              </p>
+
+        <div className="max-w-3xl mx-auto px-4 sm:px-6 py-8">
+          {/* 练习完成标题 */}
+          <div className="text-center mb-10">
+            <div className="w-16 h-16 mx-auto mb-5 rounded-full bg-success/10 text-success flex items-center justify-center">
+              <CheckIcon className="w-8 h-8" />
             </div>
 
-            {/* 成绩概览 */}
-            <div className="bg-white rounded-2xl p-8 shadow-lg border border-gray-100 mb-8">
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-6 text-center">
-                <div>
-                  <div className="text-3xl font-bold text-blue-600 mb-2">{result.accuracy}%</div>
-                  <div className="text-gray-600">准确率</div>
-                </div>
-                <div>
-                  <div className="text-3xl font-bold text-green-600 mb-2">{result.correctAnswers}</div>
-                  <div className="text-gray-600">正确题数</div>
-                </div>
-                <div>
-                  <div className="text-3xl font-bold text-red-600 mb-2">{result.wrongAnswers}</div>
-                  <div className="text-gray-600">错误题数</div>
-                </div>
-                <div>
-                  <div className="text-3xl font-bold text-purple-600 mb-2">{formatTime(result.timeSpent)}</div>
-                  <div className="text-gray-600">用时</div>
-                </div>
+            <h1 className="font-serif text-3xl font-semibold text-ink mb-3">
+              练习完成！
+            </h1>
+            <p className="text-ink-secondary">
+              {config?.mode === 'category' && '分类练习'}
+              {config?.mode === 'smart' && '智能推荐练习'}
+              {config?.mode === 'mock_exam' && '模拟考试'}
+              结果统计
+            </p>
+          </div>
+
+          {/* 成绩概览 */}
+          <Card className="p-6 sm:p-8 mb-8">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-6 text-center">
+              <div>
+                <div className="text-3xl font-serif font-bold text-accent mb-2">{result.accuracy}%</div>
+                <div className="text-ink-secondary">准确率</div>
               </div>
+              <div>
+                <div className="text-3xl font-serif font-bold text-success mb-2">{result.correctAnswers}</div>
+                <div className="text-ink-secondary">正确题数</div>
+              </div>
+              <div>
+                <div className="text-3xl font-serif font-bold text-danger mb-2">{result.wrongAnswers}</div>
+                <div className="text-ink-secondary">错误题数</div>
+              </div>
+              <div>
+                <div className="text-3xl font-serif font-bold text-ink mb-2">{formatTime(result.timeSpent)}</div>
+                <div className="text-ink-secondary">用时</div>
+              </div>
+            </div>
+          </Card>
+
+          {/* 操作按钮 */}
+          <div className="text-center space-y-4">
+            <div className="flex justify-center gap-4 flex-wrap">
+              <Button onClick={restart} size="lg">
+                返回练习中心
+              </Button>
+              <Button
+                variant="secondary"
+                size="lg"
+                onClick={() => {
+                  if (typeof window !== 'undefined') {
+                    window.location.href = '/assessment';
+                  }
+                }}
+              >
+                能力测评
+              </Button>
             </div>
 
-            {/* 操作按钮 */}
-            <div className="text-center space-y-4">
-              <div className="flex justify-center gap-4">
-                <button
-                  onClick={restart}
-                  className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white font-semibold py-3 px-8 rounded-xl shadow-lg hover:shadow-xl transform transition-all duration-200 hover:scale-105"
-                >
-                  返回练习中心
-                </button>
-                <button
-                  onClick={() => {
-                    if (typeof window !== 'undefined') {
-                      window.location.href = '/assessment';
-                    }
-                  }}
-                  className="bg-white border-2 border-blue-500 text-blue-600 hover:bg-blue-50 font-semibold py-3 px-8 rounded-xl shadow-lg hover:shadow-xl transform transition-all duration-200 hover:scale-105"
-                >
-                  能力测评
-                </button>
-              </div>
-              
-              <p className="text-sm text-gray-500">
-                练习记录已保存，继续加油！💪
-              </p>
-            </div>
+            <p className="text-sm text-ink-tertiary">
+              练习记录已保存，继续加油！
+            </p>
           </div>
         </div>
       </div>
@@ -386,108 +383,99 @@ export default function PracticeSessionPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-canvas pb-16 lg:pb-0 lg:pl-60">
       <Navigation />
-      
-      {/* 答题头部信息 */}
-      <div className="bg-white shadow-sm border-b border-gray-200 px-4 py-3">
-        <div className="max-w-6xl mx-auto flex items-center justify-between">
-          <div className="flex items-center space-x-6">
-            <h1 className="text-lg font-semibold text-gray-800">
+
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 py-8">
+        {/* 答题头部信息 */}
+        <div className="bg-surface border border-border rounded-xl px-5 py-4 mb-8 flex flex-wrap items-center justify-between gap-4">
+          <div className="flex items-center gap-6">
+            <h1 className="text-lg font-serif font-semibold text-ink">
               {config?.mode === 'category' && `分类练习 - ${config.categoryType}`}
               {config?.mode === 'smart' && 'AI智能推荐练习'}
               {config?.mode === 'mock_exam' && '模拟考试'}
             </h1>
-            <div className="text-sm text-gray-600">
+            <div className="text-sm text-ink-secondary">
               第 {currentQuestionIndex + 1} / {questions.length} 题
             </div>
           </div>
-          
-          <div className="flex items-center space-x-4">
-            <div className="text-sm text-gray-600">
+
+          <div className="flex items-center gap-4">
+            <div className="text-sm text-ink-secondary">
               用时: {formatTime(timeSpent)}
             </div>
-            <button
-              onClick={submitPractice}
-              className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-medium py-2 px-4 rounded-lg transition-all duration-200"
-            >
+            <Button onClick={submitPractice}>
               提交练习
-            </button>
+            </Button>
           </div>
         </div>
-      </div>
 
-      <div className="max-w-6xl mx-auto py-8 px-4">
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
-          
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
           {/* 题目导航 */}
           <div className="lg:col-span-1">
-            <div className="bg-white rounded-lg p-6 shadow-lg border border-gray-100 sticky top-8">
-              <h3 className="text-lg font-semibold text-gray-800 mb-4">题目导航</h3>
+            <Card className="p-5 lg:sticky lg:top-8">
+              <h3 className="text-base font-serif font-semibold text-ink mb-4">题目导航</h3>
               <div className="grid grid-cols-6 gap-2">
                 {questions.map((_, index) => (
                   <button
                     key={index}
                     onClick={() => goToQuestion(index)}
-                    className={`w-8 h-8 rounded-full text-xs font-medium transition-all duration-200 ${
+                    className={`w-8 h-8 rounded-lg text-xs font-medium transition-colors duration-200 ${
                       index === currentQuestionIndex
-                        ? 'bg-blue-500 text-white shadow-lg'
+                        ? 'bg-accent text-white'
                         : userAnswers[index]
-                        ? 'bg-green-100 text-green-800 hover:bg-green-200'
-                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                        ? 'bg-accent-soft text-accent hover:bg-accent/20'
+                        : 'bg-surface-muted text-ink-secondary hover:bg-border'
                     }`}
                   >
                     {index + 1}
                   </button>
                 ))}
               </div>
-              
+
               <div className="mt-6 space-y-2 text-sm">
                 <div className="flex items-center gap-2">
-                  <div className="w-4 h-4 bg-blue-500 rounded-full"></div>
-                  <span className="text-gray-600">当前题目</span>
+                  <div className="w-4 h-4 bg-accent rounded"></div>
+                  <span className="text-ink-secondary">当前题目</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <div className="w-4 h-4 bg-green-100 border border-green-300 rounded-full"></div>
-                  <span className="text-gray-600">已作答</span>
+                  <div className="w-4 h-4 bg-accent-soft border border-accent/30 rounded"></div>
+                  <span className="text-ink-secondary">已作答</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <div className="w-4 h-4 bg-gray-100 border border-gray-300 rounded-full"></div>
-                  <span className="text-gray-600">未作答</span>
+                  <div className="w-4 h-4 bg-surface-muted border border-border rounded"></div>
+                  <span className="text-ink-secondary">未作答</span>
                 </div>
               </div>
-            </div>
+            </Card>
           </div>
 
           {/* 题目内容 */}
           <div className="lg:col-span-3">
             {!currentQuestion || !currentQuestion.options ? (
-              <div className="bg-white rounded-lg p-8 shadow-lg border border-gray-100">
+              <Card className="p-8">
                 <div className="text-center">
-                  <div className="text-gray-500 mb-4">题目数据加载中...</div>
-                  <div className="animate-pulse bg-gray-200 h-4 rounded w-3/4 mx-auto mb-2"></div>
-                  <div className="animate-pulse bg-gray-200 h-4 rounded w-1/2 mx-auto"></div>
+                  <div className="text-ink-secondary mb-4">题目数据加载中...</div>
+                  <div className="animate-pulse bg-surface-muted h-4 rounded w-3/4 mx-auto mb-2"></div>
+                  <div className="animate-pulse bg-surface-muted h-4 rounded w-1/2 mx-auto"></div>
                 </div>
-              </div>
+              </Card>
             ) : (
-              <div className="bg-white rounded-lg p-8 shadow-lg border border-gray-100">
-                
+              <Card className="p-6 sm:p-8">
                 {/* 题目标题 */}
                 <div className="flex items-center justify-between mb-6">
-                  <h2 className="text-xl font-semibold text-gray-800">
+                  <h2 className="text-xl font-serif font-semibold text-ink">
                     第 {currentQuestionIndex + 1} 题
                   </h2>
-                  <span className="text-sm text-gray-500 bg-gray-100 px-3 py-1 rounded-full">
-                    {currentQuestion.question_type}
-                  </span>
+                  <Badge>{currentQuestion.question_type}</Badge>
                 </div>
 
                 {/* 题目内容 */}
                 <div className="mb-8">
-                  <div className="text-gray-800 text-lg leading-relaxed whitespace-pre-wrap">
+                  <div className="text-ink text-lg leading-relaxed whitespace-pre-wrap">
                     {currentQuestion.content}
                   </div>
-                  
+
                   {/* 题目图片 */}
                   {currentQuestion.images && currentQuestion.images.length > 0 && (
                     <div className="mt-6 space-y-4">
@@ -498,7 +486,7 @@ export default function PracticeSessionPage() {
                             alt={`题目图片 ${index + 1}`}
                             width={600}
                             height={400}
-                            className="rounded-lg border border-gray-200 max-w-full h-auto"
+                            className="rounded-lg border border-border max-w-full h-auto"
                             style={{ objectFit: 'contain' }}
                           />
                         </div>
@@ -511,24 +499,24 @@ export default function PracticeSessionPage() {
                 <div className="space-y-3 mb-8">
                   {currentQuestion.options && Object.entries(currentQuestion.options).map(([optionLabel, optionText]) => {
                     const isSelected = userAnswers[currentQuestionIndex] === optionLabel;
-                    
+
                     return (
                       <button
                         key={optionLabel}
                         onClick={() => selectAnswer(optionLabel)}
-                        className={`w-full text-left p-4 rounded-lg border-2 transition-all duration-200 ${
+                        className={`w-full text-left p-4 rounded-lg border transition-colors duration-200 ${
                           isSelected
-                            ? 'border-blue-500 bg-blue-50 text-blue-900'
-                            : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                            ? 'border-accent bg-accent-soft text-ink'
+                            : 'border-border bg-surface hover:border-ink-tertiary hover:bg-surface-muted'
                         }`}
                       >
                         <div className="flex items-start gap-3">
                           <span className={`flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-sm font-medium ${
-                            isSelected ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-600'
+                            isSelected ? 'bg-accent text-white' : 'bg-surface-muted text-ink-secondary border border-border'
                           }`}>
                             {optionLabel}
                           </span>
-                          <span className="text-gray-800">{optionText}</span>
+                          <span className="text-ink">{optionText}</span>
                         </div>
                       </button>
                     );
@@ -540,7 +528,7 @@ export default function PracticeSessionPage() {
                   <button
                     onClick={previousQuestion}
                     disabled={currentQuestionIndex === 0}
-                    className="flex items-center gap-2 px-6 py-3 bg-gray-100 hover:bg-gray-200 disabled:bg-gray-50 disabled:text-gray-400 text-gray-700 rounded-lg transition-all duration-200 disabled:cursor-not-allowed"
+                    className="flex items-center gap-2 px-6 py-3 bg-surface-muted hover:bg-border disabled:bg-surface disabled:text-ink-tertiary text-ink rounded-lg transition-colors duration-200 disabled:cursor-not-allowed"
                   >
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
@@ -548,14 +536,14 @@ export default function PracticeSessionPage() {
                     上一题
                   </button>
 
-                  <div className="text-sm text-gray-500">
+                  <div className="text-sm text-ink-secondary">
                     {Object.keys(userAnswers).length} / {questions.length} 已完成
                   </div>
 
                   <button
                     onClick={nextQuestion}
                     disabled={currentQuestionIndex === questions.length - 1}
-                    className="flex items-center gap-2 px-6 py-3 bg-blue-500 hover:bg-blue-600 disabled:bg-gray-100 disabled:text-gray-400 text-white rounded-lg transition-all duration-200 disabled:cursor-not-allowed"
+                    className="flex items-center gap-2 px-6 py-3 bg-accent hover:bg-accent-hover disabled:bg-surface-muted disabled:text-ink-tertiary text-white rounded-lg transition-colors duration-200 disabled:cursor-not-allowed"
                   >
                     下一题
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -563,7 +551,7 @@ export default function PracticeSessionPage() {
                     </svg>
                   </button>
                 </div>
-              </div>
+              </Card>
             )}
           </div>
         </div>
