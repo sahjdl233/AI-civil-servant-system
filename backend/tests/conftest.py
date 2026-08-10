@@ -6,6 +6,7 @@ from sqlalchemy.engine import make_url
 
 # 在导入 app 模块前确保使用 SQLite。
 os.environ.setdefault("DATABASE_URL", "sqlite:////tmp/pytest_provider.db")
+os.environ.setdefault("SECRET_KEY", "test-secret-key-for-unit-tests")
 
 # app.core.config 的 reload_env() 会执行 load_dotenv(override=True)，
 # 并按 config.py 的调用栈向上搜索到 /workspace/backend/.env，

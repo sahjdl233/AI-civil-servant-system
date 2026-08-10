@@ -54,6 +54,8 @@ class ProviderRegistry:
     # ---------- 加载与缓存 ----------
 
     def _row_to_provider(self, row: AiProvider) -> BaseLLMProvider:
+        from app.core.crypto import decrypt_secret
+
         adapter_cls = ADAPTERS.get(row.provider_type)
         if adapter_cls is None:
             logger.warning("未知 provider_type=%s，回退到 OpenAI 兼容适配器", row.provider_type)
@@ -67,7 +69,7 @@ class ProviderRegistry:
             provider_type=row.provider_type,
             model=row.model,
             base_url=row.base_url,
-            api_key=row.api_key,
+            api_key=decrypt_secret(row.api_key),
             timeout=row.timeout,
             extra=extra,
         )

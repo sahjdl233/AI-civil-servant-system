@@ -21,6 +21,7 @@ class Settings:
             'OPENAI_API_BASE': os.getenv("OPENAI_API_BASE", "https://api.kkyyxx.xyz/v1"),
             'OPENAI_MODEL_NAME': os.getenv("OPENAI_MODEL_NAME", "openai/gpt-oss-20b"),
             'DATABASE_URL': os.getenv("DATABASE_URL", ""),
+            'SECRET_KEY': os.getenv("SECRET_KEY", ""),
             'DEBUG': os.getenv("DEBUG", "False").lower() == "true"
         }
     
@@ -39,6 +40,10 @@ class Settings:
     @property
     def DATABASE_URL(self) -> str:
         return self._env_cache['DATABASE_URL']
+    
+    @property
+    def SECRET_KEY(self) -> str:
+        return self._env_cache['SECRET_KEY']
     
     @property
     def DEBUG(self) -> bool:

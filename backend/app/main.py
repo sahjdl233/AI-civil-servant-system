@@ -5,7 +5,7 @@ import traceback
 import logging
 from app.api.endpoints import essay
 from .api.endpoints import question, assessment, practice, providers
-from app.services.provider_service import ensure_seeded
+from app.services.provider_service import ensure_seeded, migrate_plaintext_keys
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -27,6 +27,7 @@ async def on_startup():
         from app.models import provider  # noqa: F401  注册模型
         Base.metadata.create_all(bind=engine)
         ensure_seeded()
+        migrate_plaintext_keys()
     except Exception as e:
         logger.error("启动种子失败: %s", str(e))
 

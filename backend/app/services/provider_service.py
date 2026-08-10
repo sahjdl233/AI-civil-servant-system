@@ -14,6 +14,7 @@ from datetime import datetime
 from typing import List, Optional
 
 from app.core.config import settings
+from app.core.crypto import decrypt_secret, encrypt_secret, is_encrypted
 from app.db.database import SessionLocal
 from app.models.provider import AiProvider
 from app.services.providers import ProviderRegistry, ProviderNotFoundError
@@ -49,7 +50,7 @@ def _to_public(row: AiProvider) -> dict:
         "is_enabled": bool(row.is_enabled),
         "timeout": row.timeout,
         "extra": row.extra,
-        "api_key_masked": mask_api_key(row.api_key),
+        "api_key_masked": mask_api_key(decrypt_secret(row.api_key)),
         "created_at": row.created_at.isoformat() if row.created_at else None,
         "updated_at": row.updated_at.isoformat() if row.updated_at else None,
     }
@@ -78,7 +79,7 @@ def create_provider(data: dict) -> dict:
             name=data["name"],
             provider_type=data["provider_type"],
             base_url=data.get("base_url") or None,
-            api_key=data["api_key"],
+            api_key=encrypt_secret(data["api_key"]),
             model=data["model"],
             is_default=bool(data.get("is_default", False)),
             is_enabled=bool(data.get("is_enabled", True)),
@@ -109,7 +110,7 @@ def update_provider(provider_id: str, data: dict) -> dict:
         if "base_url" in data:
             row.base_url = data["base_url"] or None
         if "api_key" in data and data["api_key"]:
-            row.api_key = data["api_key"]
+            row.api_key = encrypt_secret(data["api_key"])
         if "model" in data and data["model"] is not None:
             row.model = data["model"]
         if "is_enabled" in data and data["is_enabled"] is not None:
@@ -182,7 +183,7 @@ def ensure_seeded() -> None:
             name=settings.openai_model_name or "默认模型",
             provider_type=ptype,
             base_url=base or None,
-            api_key=key,
+            api_key=encrypt_secret(key),
             model=settings.openai_model_name or "gpt-4o-mini",
             is_default=True,
             is_enabled=True,
@@ -192,6 +193,21 @@ def ensure_seeded() -> None:
         db.add(row)
         db.commit()
         logger.info("已从环境变量种子创建默认 Provider: %s", row.name)
+
+
+def migrate_plaintext_keys() -> int:
+    """把历史明文 api_key 加密落库（幂等）。返回迁移行数。"""
+    migrated = 0
+    with SessionLocal() as db:
+        for row in db.query(AiProvider).all():
+            if row.api_key and not is_encrypted(row.api_key):
+                row.api_key = encrypt_secret(row.api_key)
+                row.updated_at = datetime.utcnow()
+                migrated += 1
+        if migrated:
+            db.commit()
+            logger.info("已加密 %d 条历史明文 Provider 密钥", migrated)
+    return migrated
 
 
 async def invalidate_registry() -> None:
