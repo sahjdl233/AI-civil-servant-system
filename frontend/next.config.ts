@@ -3,6 +3,7 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   experimental: {
     // turbotrace has been removed in Next.js 15
+    allowedHosts: ['.monkeycode-ai.live'],
   },
   // 将前端的 /api/* 透明代理到后端 FastAPI
   async rewrites() {

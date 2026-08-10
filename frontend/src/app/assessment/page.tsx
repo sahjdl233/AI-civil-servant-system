@@ -27,12 +27,39 @@ interface Question {
   explanation: string;
 }
 
+interface QuestionImage {
+  id: string;
+  url: string;
+  image_type?: string;
+  context_text?: string;
+}
+
+interface DetailedScore {
+  question_id: number;
+  question_number: number;
+  question_title: string;
+  question_content: string;
+  question_type: string;
+  question_options: Record<string, string>;
+  question_images?: QuestionImage[];
+  correct: boolean;
+  user_answer: string;
+  correct_answer: string;
+  explanation: string;
+}
+
+interface Recommendation {
+  title: string;
+  content: string;
+  suggestions?: string[];
+}
+
 interface AssessmentResult {
   session_id: string;
   total_score: number;
   dimension_scores: { [key: string]: number };
-  detailed_scores: any[];
-  recommendations: any[];
+  detailed_scores: DetailedScore[];
+  recommendations: Recommendation[];
   completion_time: number;
   completed_at: string;
 }
@@ -46,7 +73,7 @@ export default function AssessmentPage() {
   const [sessionId, setSessionId] = useState<string>('');
   const [result, setResult] = useState<AssessmentResult | null>(null);
   const [loading, setLoading] = useState(false);
-  const [assessmentSummary, setAssessmentSummary] = useState<any>(null);
+  const [assessmentSummary, setAssessmentSummary] = useState<Record<string, unknown> | null>(null);
   const [lastSelectedAnswer, setLastSelectedAnswer] = useState<string>(''); // 记录上一题的选择
 
   const startAssessment = async () => {
@@ -539,7 +566,7 @@ function ResultInterface({
   // 获取筛选后的题目列表
   const getFilteredQuestions = useCallback(() => {
     if (!result?.detailed_scores) return [];
-    return result.detailed_scores.filter((detail: any) => {
+    return result.detailed_scores.filter((detail: DetailedScore) => {
       if (filterType === 'all') return true;
       if (filterType === 'correct') return detail.correct;
       if (filterType === 'wrong') return !detail.correct;
@@ -780,7 +807,7 @@ function ResultInterface({
                         : 'bg-surface border border-border text-ink-secondary hover:bg-surface-muted'
                     }`}
                   >
-                    错题 ({result.detailed_scores.filter((d: any) => !d.correct).length})
+                    错题 ({result.detailed_scores.filter((d: DetailedScore) => !d.correct).length})
                   </button>
                   <button
                     onClick={() => handleFilterChange('correct')}
@@ -790,11 +817,11 @@ function ResultInterface({
                         : 'bg-surface border border-border text-ink-secondary hover:bg-surface-muted'
                     }`}
                   >
-                    正确 ({result.detailed_scores.filter((d: any) => d.correct).length})
+                    正确 ({result.detailed_scores.filter((d: DetailedScore) => d.correct).length})
                   </button>
                   
                   {/* 按题型筛选 */}
-                  {Array.from(new Set(result.detailed_scores.map((d: any) => d.question_type))).map((type: any) => (
+                  {Array.from(new Set(result.detailed_scores.map((d: DetailedScore) => d.question_type))).map((type) => (
                     <button
                       key={type}
                       onClick={() => handleFilterChange(type)}
@@ -804,7 +831,7 @@ function ResultInterface({
                           : 'bg-surface border border-border text-ink-secondary hover:bg-surface-muted'
                       }`}
                     >
-                      {type} ({result.detailed_scores.filter((d: any) => d.question_type === type).length})
+                      {type} ({result.detailed_scores.filter((d: DetailedScore) => d.question_type === type).length})
                     </button>
                   ))}
                 </div>
@@ -832,8 +859,8 @@ function ResultInterface({
                 <div className="bg-surface-muted rounded-lg p-4">
                   <h3 className="text-sm font-medium text-ink mb-3">题目导航（点击跳转）</h3>
                   <div className="grid grid-cols-6 sm:grid-cols-9 lg:grid-cols-12 xl:grid-cols-18 gap-2">
-                    {filteredQuestions.map((detail: any, index: number) => {
-                      const originalIndex = result.detailed_scores.findIndex((d: any) => d.question_id === detail.question_id);
+                    {filteredQuestions.map((detail: DetailedScore, index: number) => {
+                      const originalIndex = result.detailed_scores.findIndex((d: DetailedScore) => d.question_id === detail.question_id);
                       
                       return (
                         <button
@@ -910,12 +937,12 @@ function ResultInterface({
                             ? 'bg-success/10 text-success' 
                             : 'bg-danger/10 text-danger'
                         }`}>
-                          {result.detailed_scores.findIndex((d: any) => d.question_id === currentQuestion.question_id) + 1}
+                          {result.detailed_scores.findIndex((d: DetailedScore) => d.question_id === currentQuestion.question_id) + 1}
                         </div>
                         
                         <div className="flex-1">
                           <h3 className="font-medium text-ink text-lg mb-1">
-                            {currentQuestion.question_title || `第${result.detailed_scores.findIndex((d: any) => d.question_id === currentQuestion.question_id) + 1}题`}
+                            {currentQuestion.question_title || `第${result.detailed_scores.findIndex((d: DetailedScore) => d.question_id === currentQuestion.question_id) + 1}题`}
                           </h3>
                           <div className="flex items-center gap-4 text-sm text-ink-secondary">
                             <span>题型: {currentQuestion.question_type || '未知'}</span>
@@ -932,13 +959,13 @@ function ResultInterface({
                     </div>
 
                     {/* 题目图片 */}
-                    {currentQuestion.question_images && currentQuestion.question_images.filter((img: any) => img.image_type === 'material' || !img.image_type).length > 0 && (
+                    {currentQuestion.question_images && currentQuestion.question_images.filter((img: QuestionImage) => img.image_type === 'material' || !img.image_type).length > 0 && (
                       <div className="mb-6">
                         <h4 className="text-sm font-medium text-ink mb-3">题目材料:</h4>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                           {currentQuestion.question_images
-                            .filter((img: any) => img.image_type === 'material' || !img.image_type)
-                            .map((image: any, imgIndex: number) => (
+                            .filter((img: QuestionImage) => img.image_type === 'material' || !img.image_type)
+                            .map((image: QuestionImage, imgIndex: number) => (
                               <div key={image.id} className="border border-border rounded-lg overflow-hidden">
                                 <img 
                                   src={image.url}
@@ -975,8 +1002,8 @@ function ResultInterface({
                       <div className="mb-6">
                         <h4 className="text-sm font-medium text-ink mb-3">选项:</h4>
                         <div className="space-y-3">
-                          {Object.entries(currentQuestion.question_options).map(([key, value]: [string, any]) => {
-                            const optionImages = currentQuestion.question_images?.filter((img: any) => 
+                          {Object.entries(currentQuestion.question_options).map(([key, value]: [string, string]) => {
+                            const optionImages = currentQuestion.question_images?.filter((img: QuestionImage) => 
                               img.image_type === 'option' && 
                               img.context_text?.trim().startsWith(key)
                             ) || [];
@@ -1025,7 +1052,7 @@ function ResultInterface({
                                     {/* 选项图片 */}
                                     {optionImages.length > 0 && (
                                       <div className="flex-shrink-0 w-32">
-                                        {optionImages.map((image: any) => (
+                                        {optionImages.map((image: QuestionImage) => (
                                           <img 
                                             key={image.id}
                                             src={image.url}
@@ -1084,7 +1111,7 @@ function ResultInterface({
               {/* 底部统计 */}
               <div className="mt-8 text-center">
                 <div className="flex items-center justify-center gap-6 text-sm text-ink-secondary">
-                  <span>总计答对 {result.detailed_scores.filter((d: any) => d.correct).length} / {result.detailed_scores.length} 题</span>
+                  <span>总计答对 {result.detailed_scores.filter((d: DetailedScore) => d.correct).length} / {result.detailed_scores.length} 题</span>
                   <span>当前筛选: {totalFilteredQuestions} 题</span>
                   <span className="text-xs bg-surface-muted px-2 py-1 rounded">
                     使用 ← → 键快速翻页
@@ -1100,7 +1127,7 @@ function ResultInterface({
               <h2 className="font-serif text-xl font-semibold text-ink mb-6">专业学习建议</h2>
               
               <div className="space-y-6">
-                {result.recommendations.map((rec: any, index: number) => (
+                {result.recommendations.map((rec: Recommendation, index: number) => (
                   <div key={index} className="border-l-4 border-accent pl-6">
                     <h3 className="text-base font-medium text-ink mb-2">
                       {rec.title}

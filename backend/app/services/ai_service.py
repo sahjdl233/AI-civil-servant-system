@@ -15,6 +15,7 @@ from typing import Optional, List
 from openai import AsyncOpenAI
 from ..core.config import settings
 from ..schemas.essay import EssayGradingResult, ScoreDetail, DetailedScoreDetail, ScorePoint
+from .providers.base import BaseLLMProvider
 from .prompt_service_simple import (
     create_expert_diagnosis_prompt,
     create_overall_evaluation_prompt,
@@ -23,6 +24,13 @@ from .prompt_service_simple import (
 from .prompt_service import extract_chapter_content
 
 logger = logging.getLogger(__name__)
+
+PLACEHOLDER_KEYS = {
+    "sk-test-key-placeholder",
+    "你的OpenAI密钥",
+    "your-openai-api-key",
+    "sk-your-openai-api-key-here",
+}
 
 
 def clean_unicode_text(text: str) -> str:
@@ -248,53 +256,42 @@ def clean_ai_thinking_patterns(text: str) -> str:
     return text.strip()
 
 
-async def grade_essay_with_expert_diagnosis(essay_content: str, question_type: Optional[str] = None) -> tuple:
+async def grade_essay_with_expert_diagnosis(provider: BaseLLMProvider, essay_content: str, question_type: Optional[str] = None) -> tuple:
     """
     双阶段AI专家诊断式评分
     第一阶段：专业阅卷老师逐句诊断
     第二阶段：基于诊断生成整体评价
-    
+
+    Args:
+        provider: 使用的 AI Provider（多模型评分时互不影响）
+        essay_content: 学生作答内容
+        question_type: 题型
+
     Returns:
         tuple: (第一阶段诊断结果, 第二阶段评价结果)
     """
     try:
         # 检查是否为演示模式（API密钥为占位符）
-        if settings.openai_api_key in ["sk-test-key-placeholder", "你的OpenAI密钥", "your-openai-api-key"]:
+        if provider.api_key in PLACEHOLDER_KEYS:
             logger.info("检测到演示模式，使用模拟AI评分")
             return create_demo_ai_response(essay_content, question_type)
-        
-        client = AsyncOpenAI(
-            api_key=settings.openai_api_key,
-            base_url=settings.openai_api_base,
-            timeout=180.0,  # 增加超时时间到3分钟，适应推理模型
-            default_headers={
-                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-                "Content-Type": "application/json; charset=utf-8"
-            }
-        )
         
         # ===== 第一阶段：专业诊断 =====
         diagnosis_prompt = create_expert_diagnosis_prompt(essay_content, question_type or "概括题")
         
-        logger.info("开始第一阶段：AI专家诊断分析...")
+        logger.info("开始第一阶段：AI专家诊断分析（模型: %s）...", provider.name)
         # 确保所有文本都正确编码
         clean_diagnosis_prompt = clean_unicode_text(diagnosis_prompt)
         clean_user_content = clean_unicode_text("你是一位资深申论阅卷专家。请进行专业的逐句批改诊断。\n\n" + clean_diagnosis_prompt)
         
-        diagnosis_response = await client.chat.completions.create(
-            model=settings.openai_model_name,
-            messages=[
-                {
-                    "role": "user",
-                    "content": clean_user_content
-                }
-            ],
+        diagnosis_result = await provider.chat(
+            messages=[{"role": "user", "content": clean_user_content}],
             temperature=0.2,
             max_tokens=2048,  # 减少token数量以提高响应速度
-            timeout=180.0  # 增加单次请求超时时间到3分钟
+            timeout=float(provider.timeout)
         )
         
-        diagnosis_content = diagnosis_response.choices[0].message.content
+        diagnosis_content = diagnosis_result.content
         if not diagnosis_content:
             raise ValueError("第一阶段AI诊断返回空响应")
         
@@ -314,25 +311,19 @@ async def grade_essay_with_expert_diagnosis(essay_content: str, question_type: O
             diagnosis_data, essay_content, question_type or "概括题"
         )
         
-        logger.info("开始第二阶段：整体评价生成...")
+        logger.info("开始第二阶段：整体评价生成（模型: %s）...", provider.name)
         # 确保所有文本都正确编码
         clean_evaluation_prompt = clean_unicode_text(evaluation_prompt)
         clean_eval_content = clean_unicode_text("请基于第一阶段的专业诊断结果，生成整体评价。\n\n" + clean_evaluation_prompt)
         
-        evaluation_response = await client.chat.completions.create(
-            model=settings.openai_model_name,
-            messages=[
-                {
-                    "role": "user",
-                    "content": clean_eval_content
-                }
-            ],
+        evaluation_result = await provider.chat(
+            messages=[{"role": "user", "content": clean_eval_content}],
             temperature=0.2,
             max_tokens=1024,  # 减少token数量以提高响应速度
-            timeout=180.0  # 增加单次请求超时时间到3分钟
+            timeout=float(provider.timeout)
         )
         
-        evaluation_content = evaluation_response.choices[0].message.content
+        evaluation_content = evaluation_result.content
         if not evaluation_content:
             raise ValueError("第二阶段整体评价返回空响应")
         
@@ -359,14 +350,21 @@ async def grade_essay_with_expert_diagnosis(essay_content: str, question_type: O
 
 
 async def grade_essay_with_ai(essay_content: str, question_type: Optional[str] = None) -> EssayGradingResult:
+    """兼容入口：使用默认 Provider 评分。"""
+    from .providers.registry import ProviderRegistry
+    provider = await ProviderRegistry.get_instance().get_default()
+    return await grade_essay_with_provider(provider, essay_content, question_type)
+
+
+async def grade_essay_with_provider(provider: BaseLLMProvider, essay_content: str, question_type: Optional[str] = None) -> EssayGradingResult:
     """
-    新的双阶段AI专家评分主函数
+    双阶段AI专家评分主函数（面向指定 Provider）
     整合诊断和评价两个阶段的结果，确保返回干净的用户友好内容
     """
     try:
         # 调用双阶段诊断
         diagnosis_data, evaluation_data = await grade_essay_with_expert_diagnosis(
-            essay_content, question_type
+            provider, essay_content, question_type
         )
         
         # 获取总分
@@ -622,18 +620,13 @@ def convert_diagnosis_to_score_details(diagnosis_data: dict, question_type: str 
         )]
 
 
-async def get_question_type_from_ai(question_text: str) -> str:
+async def get_question_type_from_ai(question_text: str, provider: Optional[BaseLLMProvider] = None) -> str:
     """AI题型诊断服务 - 增强版本，基于申论四大题型核心秘籍"""
     try:
-        client = AsyncOpenAI(
-            api_key=settings.openai_api_key,
-            base_url=settings.openai_api_base,
-            timeout=60.0,  # 增加超时时间
-            default_headers={
-                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
-            }
-        )
-        
+        if provider is None:
+            from .providers.registry import ProviderRegistry
+            provider = await ProviderRegistry.get_instance().get_default()
+
         # 为避免偏置，仅使用中立定义进行识别
         prompt = """你是申论题型专家"悟道"，基于《申论四大题型核心秘籍》进行题型识别。
 
@@ -642,16 +635,16 @@ async def get_question_type_from_ai(question_text: str) -> str:
    - 关键词：概括、归纳、梳理、总结、列举
    - 特征：信息降维与逻辑重建
    - 注意：题目通常只要求列出要点，不要求深入分析关系
-   
+    
 2. **综合分析题**：要求"分析"、"谈谈理解"、"评价"、"说明"某个观点、现象、词语
    - 关键词：分析、理解、谈谈、评价、如何看待、说明、阐述、解释
    - 特征：解构与重构的逻辑思辨
    - 注意：题目往往要求不仅说明"是什么"，还要分析"为什么"、"如何"等深层关系
-   
+    
 3. **对策题**：要求提出"对策"、"建议"、"措施"、"怎么办"
    - 关键词：对策、建议、措施、办法、如何解决
    - 特征：对症下药的精准施策
-   
+    
 4. **应用文写作题**：要求写"倡议书"、"讲话稿"、"报告"、"通知"等格式化文体
    - 关键词：写、拟、起草 + 具体文种名称
    - 特征：带着镣铐的场景之舞
@@ -681,17 +674,16 @@ async def get_question_type_from_ai(question_text: str) -> str:
         # 确保prompt文本正确编码
         clean_prompt = clean_unicode_text(prompt)
         
-        response = await client.chat.completions.create(
-            model=settings.openai_model_name,
+        result = await provider.chat(
             messages=[{"role": "user", "content": clean_prompt}],
             temperature=0.1,  # 降低温度提高准确性
             max_tokens=200,  # 增加token限制避免截断
             timeout=60.0  # 增加超时时间
         )
         
-        # 处理推理模型：优先从reasoning_content获取响应，fallback到content
-        ai_response = response.choices[0].message.content
-        reasoning_content = getattr(response.choices[0].message, 'reasoning_content', None)
+        # 处理推理模型：优先从content获取，fallback到reasoning_content
+        ai_response = result.content
+        reasoning_content = result.reasoning_content
         
         # 如果content为空但reasoning_content有内容，尝试从reasoning中提取答案
         if not ai_response and reasoning_content:
@@ -795,28 +787,33 @@ async def get_question_type_from_ai(question_text: str) -> str:
 
 
 async def get_ai_service_status() -> dict:
-    """检查AI服务状态"""
+    """检查AI服务状态（基于默认 Provider）"""
     try:
-        # 强制重载配置以获取最新值
-        settings.reload()
-        api_key = settings.openai_api_key
-        if not api_key or api_key in ["sk-your-openai-api-key-here", "sk-test-key-placeholder", "你的OpenAI密钥"]:
+        from .providers.registry import ProviderRegistry, ProviderNotFoundError
+        provider = await ProviderRegistry.get_instance().get_default()
+        api_key = provider.api_key
+        if not api_key or api_key in PLACEHOLDER_KEYS:
             return {
                 "status": "error",
                 "message": "AI API密钥未正确配置"
             }
         
         # 检测API类型
-        api_type = "火山引擎" if "volces.com" in settings.openai_api_base else "OpenAI"
+        api_type = "火山引擎" if "volces.com" in provider.base_url else provider.provider_type
         
         return {
             "status": "ready",
             "message": f"{api_type} AI服务已就绪",
-            "model": settings.openai_model_name,
-            "api_base": settings.openai_api_base,
+            "model": provider.model,
+            "api_base": provider.base_url,
             "api_type": api_type
         }
         
+    except ProviderNotFoundError:
+        return {
+            "status": "error",
+            "message": "未配置任何 AI Provider"
+        }
     except Exception as e:
         return {
             "status": "error",

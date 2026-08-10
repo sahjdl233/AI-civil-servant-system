@@ -13,7 +13,7 @@ import { CheckIcon, LoaderIcon } from '../../../components/ui/icons';
 interface PracticeConfig {
   mode: 'category' | 'smart' | 'mock_exam';
   categoryType?: string;
-  assessmentResult?: any;
+  assessmentResult?: Record<string, unknown>;
   timeLimit?: number;
   questionCount?: number;
   timestamp: string;
@@ -157,7 +157,7 @@ export default function PracticeSessionPage() {
   };
 
   // 获取个性化推荐题目
-  const fetchPersonalizedQuestions = async (assessmentResult: any): Promise<Question[]> => {
+  const fetchPersonalizedQuestions = async (assessmentResult?: Record<string, unknown>): Promise<Question[]> => {
     try {
       const response = await fetch(`${API_BASE_URL}/api/v1/practice/personalized`, {
         method: 'POST',

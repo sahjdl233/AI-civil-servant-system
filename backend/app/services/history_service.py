@@ -23,12 +23,16 @@ def append_history(
       { id, timestamp, type, request, response, extra }
     """
     record_id = str(uuid.uuid4())
+    extra = extra or {}
+    score = response.get("score")
+    if score is None:
+        score = extra.get("avg_score")
     with SessionLocal() as db:
         row = History(
             id=record_id,
             kind=kind,
             question_type=(response.get("questionType") or request.get("question_type")),
-            score=response.get("score"),
+            score=score,
             request_json=request,
             response_json=response,
             extra_json=extra,

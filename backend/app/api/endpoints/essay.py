@@ -1,6 +1,7 @@
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
 from app.schemas.essay import EssaySubmission
+from app.schemas.provider import MultiGradingRequest
 from app.services.ai_service import (
     get_question_type_from_ai,
     grade_essay_with_ai,
@@ -13,7 +14,9 @@ from app.services.ai_service_simple import (
     grade_essay_simple,
     get_question_type_simple
 )
+from app.services.grading.orchestrator import grade_multi_stream
 from app.core.config import settings
+from app.services.providers import ProviderRegistry, ProviderNotFoundError
 import logging
 import json
 import asyncio
@@ -80,10 +83,12 @@ async def grade_essay_progressive(submission: EssaySubmission):
 
         async def generate_progressive_response():
             try:
+                # 使用默认 Provider（保持原有单模型行为）
+                provider = await ProviderRegistry.get_instance().get_default()
                 # ===== 第一阶段：专业诊断 (进度50%) =====
                 logger.info("第一阶段：AI专家诊断开始...")
                 diagnosis_data, evaluation_data = await grade_essay_with_expert_diagnosis(
-                    submission.content, question_type
+                    provider, submission.content, question_type
                 )
                 
                 # 将诊断结果转换为评分细则格式
@@ -388,6 +393,71 @@ async def grade_essay_simple_endpoint(submission: EssaySubmission):
             "questionTypeSource": "fallback",
             "mode": "simple"
         }
+
+
+@router.post("/essays/grade-multi")
+async def grade_essay_multi(submission: MultiGradingRequest):
+    """
+    多模型评分接口（SSE 流式）
+    支持同时选择多个 Provider 独立评分，单个模型失败不影响其他模型。
+    事件流：
+      models_started -> model_start xN -> model_result|model_error xN -> done(汇总)
+    """
+    logger.info("=== 多模型评分开始 ===")
+    logger.info(f"Content length: {len(submission.content)}")
+    logger.info(f"Provider ids: {submission.provider_ids}")
+
+    async def generate():
+        try:
+            final_results = None
+            final_aggregate = None
+            async for event in grade_multi_stream(
+                submission.content, submission.question_type, submission.provider_ids
+            ):
+                if event.get("type") == "done":
+                    final_results = event.get("results")
+                    final_aggregate = event.get("aggregate")
+                yield (f"data: {json.dumps(event, ensure_ascii=False)}\n\n").encode("utf-8", errors="replace")
+
+            # 持久化历史（多模型汇总分数取均分）
+            if final_results:
+                avg_score = None
+                if final_aggregate and final_aggregate.get("hasScore"):
+                    avg_score = final_aggregate.get("avgScore")
+                response_data = {
+                    "results": final_results,
+                    "aggregate": final_aggregate,
+                    "questionType": submission.question_type,
+                }
+                append_history(
+                    kind="grade_multi",
+                    request={
+                        "content": submission.content,
+                        "question_type": submission.question_type,
+                        "provider_ids": submission.provider_ids,
+                    },
+                    response=response_data,
+                    extra={"avg_score": avg_score},
+                )
+        except Exception as e:
+            logger.error(f"多模型评分异常: {str(e)}")
+            error_event = {
+                "type": "error",
+                "status": "评分失败",
+                "message": "AI评分服务异常，请稍后重试",
+                "error": str(e)[:200],
+            }
+            yield (f"data: {json.dumps(error_event, ensure_ascii=False)}\n\n").encode("utf-8", errors="replace")
+
+    return StreamingResponse(
+        generate(),
+        media_type="text/event-stream; charset=utf-8",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
 
 
 @router.get("/essays/ai-status")

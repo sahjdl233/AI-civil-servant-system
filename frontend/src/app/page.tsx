@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import Navigation from "../components/Navigation";
 import Button from "../components/ui/Button";
-import { PenIcon, ChartIcon, BookIcon, UserIcon, ArrowRightIcon } from "../components/ui/icons";
+import { PenIcon, ChartIcon, BookIcon, UserIcon, ArrowRightIcon, ServerIcon } from "../components/ui/icons";
 import { API_BASE_URL } from "../config/api";
 
 const features = [
@@ -95,6 +95,10 @@ export default function HomePage() {
           </Button>
           <Button href="/assessment" size="lg" variant="secondary">
             能力测评
+          </Button>
+          <Button href="/admin/providers" size="lg" variant="ghost">
+            <ServerIcon className="w-4 h-4" />
+            模型配置
           </Button>
         </div>
 

@@ -2,15 +2,14 @@ from sqlalchemy import Column, String, DateTime, Float
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.types import JSON as SA_JSON
 from datetime import datetime
-from app.db.database import Base
+from app.db.database import Base, DATABASE_URL
 
 
 def _json_type():
-    # Prefer JSONB on Postgres; fall back to generic JSON for others
-    try:
-        return JSONB()
-    except Exception:
+    # Prefer JSONB on Postgres; fall back to generic JSON for SQLite/others
+    if DATABASE_URL.startswith("sqlite"):
         return SA_JSON()
+    return JSONB()
 
 
 class History(Base):

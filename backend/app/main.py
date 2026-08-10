@@ -4,7 +4,8 @@ from fastapi.responses import JSONResponse, RedirectResponse
 import traceback
 import logging
 from app.api.endpoints import essay
-from .api.endpoints import question, assessment, practice
+from .api.endpoints import question, assessment, practice, providers
+from app.services.provider_service import ensure_seeded
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -16,6 +17,18 @@ app = FastAPI(
     description="AI Public Exam Platform Backend API",
     version="1.0.0"
 )
+
+
+@app.on_event("startup")
+async def on_startup():
+    """启动时确保 ai_providers 表存在并完成环境变量种子。"""
+    try:
+        from app.db.database import Base, engine
+        from app.models import provider  # noqa: F401  注册模型
+        Base.metadata.create_all(bind=engine)
+        ensure_seeded()
+    except Exception as e:
+        logger.error("启动种子失败: %s", str(e))
 
 # Global exception handler
 @app.exception_handler(Exception)
@@ -108,6 +121,9 @@ app.include_router(assessment.router, prefix="/api/v1/assessment", tags=["assess
 
 # Include practice API routes
 app.include_router(practice.router, prefix="/api/v1/practice", tags=["practice"])
+
+# Include provider management API routes
+app.include_router(providers.router, prefix="/api/v1", tags=["providers"])
 
 # Root redirects to admin dashboard for easier access
 @app.get("/")

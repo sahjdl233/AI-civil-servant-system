@@ -39,7 +39,7 @@ interface LearningRecord {
   title: string;
   score: number;
   date: string;
-  details?: any;
+  details?: { feedback?: string };
 }
 
 export default function ProfilePage() {

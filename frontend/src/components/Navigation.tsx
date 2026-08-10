@@ -9,6 +9,8 @@ import {
   BookIcon,
   UserIcon,
   HistoryIcon,
+  ServerIcon,
+  SettingsIcon,
 } from "./ui/icons";
 
 const primaryItems = [
@@ -19,7 +21,10 @@ const primaryItems = [
   { name: "学习档案", href: "/profile", icon: UserIcon },
 ];
 
-const secondaryItems = [{ name: "批改历史", href: "/history", icon: HistoryIcon }];
+const secondaryItems = [
+  { name: "批改历史", href: "/history", icon: HistoryIcon },
+  { name: "模型设置", href: "/admin/providers", icon: ServerIcon },
+];
 
 export default function Navigation() {
   const pathname = usePathname();
@@ -84,6 +89,17 @@ export default function Navigation() {
         <span className="font-serif font-semibold text-ink text-[15px]">
           智考公考伴侣
         </span>
+        <Link
+          href="/admin/providers"
+          aria-label="模型设置"
+          className={`ml-auto w-9 h-9 rounded-lg flex items-center justify-center transition-colors ${
+            isActive("/admin/providers")
+              ? "bg-accent-soft text-accent"
+              : "text-ink-tertiary hover:text-ink hover:bg-surface-muted"
+          }`}
+        >
+          <SettingsIcon className="w-5 h-5" />
+        </Link>
       </div>
 
       {/* 移动端：底部 Tab 栏 */}

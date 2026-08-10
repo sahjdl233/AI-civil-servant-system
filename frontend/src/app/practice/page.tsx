@@ -146,7 +146,7 @@ export default function PracticePage() {
       let assessmentData = null;
       
       // 检查专用练习数据
-      let stored = localStorage.getItem('assessment_result_for_practice');
+      const stored = localStorage.getItem('assessment_result_for_practice');
       if (stored) {
         const data = JSON.parse(stored);
         const dataAge = new Date().getTime() - new Date(data.timestamp).getTime();
