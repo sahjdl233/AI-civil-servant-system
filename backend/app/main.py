@@ -4,7 +4,7 @@ from fastapi.responses import JSONResponse, RedirectResponse
 import traceback
 import logging
 from app.api.endpoints import essay
-from .api.endpoints import question, assessment, practice, providers
+from .api.endpoints import question, assessment, practice, providers, dual_role
 from app.services.provider_service import ensure_seeded, migrate_plaintext_keys
 
 # Configure logging
@@ -125,6 +125,9 @@ app.include_router(practice.router, prefix="/api/v1/practice", tags=["practice"]
 
 # Include provider management API routes
 app.include_router(providers.router, prefix="/api/v1", tags=["providers"])
+
+# Include dual-role grading API routes
+app.include_router(dual_role.router, prefix="/api/v1", tags=["essay"])
 
 # Root redirects to admin dashboard for easier access
 @app.get("/")

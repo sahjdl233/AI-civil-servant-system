@@ -64,3 +64,95 @@ export interface DoneEvent {
   results: ModelResult[];
   aggregate: Aggregate;
 }
+
+/* ---------- 双角色批改类型 ---------- */
+
+export interface DualRoleRef {
+  key: "grader" | "coach";
+  name: string;
+}
+
+export interface ScoreBreakdownItem {
+  item: string;
+  full_score: number;
+  actual_score: number;
+}
+
+export interface MainDeduction {
+  reason: string;
+  deducted?: number;
+}
+
+export interface GraderResult {
+  total_score: number;
+  score_breakdown: ScoreBreakdownItem[];
+  main_deductions: MainDeduction[];
+  scoring_basis: string;
+}
+
+export interface RewriteItem {
+  original: string;
+  optimized: string;
+  why: string;
+}
+
+export interface ParagraphAdvice {
+  paragraph: string;
+  diagnosis: string;
+  suggestions: string[];
+  rewrites: RewriteItem[];
+}
+
+export interface CoachResult {
+  paragraph_advice: ParagraphAdvice[];
+  overall_advice: string;
+}
+
+export interface StandardAnswerResult {
+  standardAnswer: string;
+  explanation: string;
+}
+
+export interface DualRolePart1 {
+  score: number;
+  mainDeductions: string[];
+  scoringBasis: string;
+}
+
+export interface DualRolePart2 {
+  paragraphAdvice: ParagraphAdvice[];
+  overallAdvice: string;
+}
+
+export interface CombinedDualResult {
+  part1: DualRolePart1 | null;
+  part2: DualRolePart2 | null;
+}
+
+export interface DualRolesStartedEvent {
+  type: "roles_started";
+  roles: DualRoleRef[];
+  questionType?: string;
+  questionTypeSource?: string;
+}
+
+export interface DualRoleResultEvent {
+  type: "role_result";
+  role: "grader" | "coach";
+  data: GraderResult | CoachResult;
+}
+
+export interface DualRoleErrorEvent {
+  type: "role_error";
+  role: "grader" | "coach";
+  message: string;
+}
+
+export interface DualDoneEvent {
+  type: "done";
+  grader?: GraderResult | null;
+  coach?: CoachResult | null;
+  combined?: CombinedDualResult;
+  questionType?: string;
+  questionTypeSource?: string;
+}

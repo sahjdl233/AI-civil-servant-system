@@ -10,7 +10,9 @@ import ScoreBar from "../../components/ui/ScoreBar";
 import PageHeader from "../../components/ui/PageHeader";
 import ModelSelector from "../../components/ModelSelector";
 import MultiResultView from "../../components/MultiResultView";
+import DualRoleResultView from "../../components/DualRoleResultView";
 import { useGradeMulti } from "../../hooks/useGradeMulti";
+import { useGradeDual } from "../../hooks/useGradeDual";
 import { useProviders } from "../../hooks/useProviders";
 import {
   HistoryIcon,
@@ -18,13 +20,26 @@ import {
   XIcon,
 } from "../../components/ui/icons";
 
+type GradeMode = "dual" | "multi";
+
+const MODE_TABS: { key: GradeMode; label: string }[] = [
+  { key: "dual", label: "双角色批改" },
+  { key: "multi", label: "多模型阅卷" },
+];
+
 export default function EssayPage() {
   const [questionMaterial, setQuestionMaterial] = useState<string>("");
   const [myAnswer, setMyAnswer] = useState<string>("");
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [mode, setMode] = useState<GradeMode>("dual");
   const [progress, setProgress] = useState<number>(0);
   const { providers, loading: providersLoading } = useProviders();
-  const { state, grade, stop } = useGradeMulti();
+  const multi = useGradeMulti();
+  const dual = useGradeDual();
+
+  const streaming = mode === "dual" ? dual.state.isStreaming : multi.state.isStreaming;
+  const error = mode === "dual" ? dual.state.error : multi.state.error;
+  const statusText = mode === "dual" ? dual.state.statusText : multi.state.statusText;
 
   // 默认勾选：默认 Provider 优先并附带全部启用的模型；用户改动后保持选择
   useEffect(() => {
@@ -41,8 +56,8 @@ export default function EssayPage() {
 
   // 提交期间驱动本地进度条
   useEffect(() => {
-    if (!state.isStreaming) {
-      setProgress(state.error ? 0 : state.aggregate ? 100 : 0);
+    if (!streaming) {
+      setProgress(error ? 0 : 0);
       return;
     }
     let current = 0;
@@ -53,7 +68,7 @@ export default function EssayPage() {
       setProgress(current);
     }, 200);
     return () => clearInterval(timer);
-  }, [state.isStreaming, state.error, state.aggregate]);
+  }, [streaming, error]);
 
   const handleSubmit = async () => {
     if (!questionMaterial.trim()) {
@@ -64,27 +79,33 @@ export default function EssayPage() {
       alert("请先填写你的作答");
       return;
     }
-    if (selectedIds.length === 0) {
+    if (mode === "multi" && selectedIds.length === 0) {
       alert("请至少选择一个阅卷模型");
       return;
     }
 
     const combinedContent = `【题目材料与题干】\n${questionMaterial}\n\n【我的作答】\n${myAnswer}`;
-    await grade(combinedContent, selectedIds);
+    if (mode === "dual") {
+      await dual.grade(combinedContent);
+    } else {
+      await multi.grade(combinedContent, selectedIds);
+    }
 
-    // 保存学习记录到 localStorage（多模型结果）
-    try {
-      const recordId = `essay_result_${Date.now()}`;
-      const recordData = {
-        multi: true,
-        timestamp: new Date().toISOString(),
-        content: myAnswer.substring(0, 200) + (myAnswer.length > 200 ? "..." : ""),
-        questionMaterial:
-          questionMaterial.substring(0, 200) + (questionMaterial.length > 200 ? "..." : ""),
-      };
-      localStorage.setItem(recordId, JSON.stringify(recordData));
-    } catch {
-      // ignore localStorage errors
+    // 保存学习记录到 localStorage（仅多模型模式记录模型选择）
+    if (mode === "multi") {
+      try {
+        const recordId = `essay_result_${Date.now()}`;
+        const recordData = {
+          multi: true,
+          timestamp: new Date().toISOString(),
+          content: myAnswer.substring(0, 200) + (myAnswer.length > 200 ? "..." : ""),
+          questionMaterial:
+            questionMaterial.substring(0, 200) + (questionMaterial.length > 200 ? "..." : ""),
+        };
+        localStorage.setItem(recordId, JSON.stringify(recordData));
+      } catch {
+        // ignore localStorage errors
+      }
     }
   };
 
@@ -95,7 +116,7 @@ export default function EssayPage() {
       <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8">
         <PageHeader
           title="申论智能批改"
-          description="AI 专家级批改，支持多模型同时阅卷，个性化学习建议，助力公考申论高分突破。"
+          description="AI 专家级批改，支持双角色批改与多模型阅卷，个性化学习建议，助力公考申论高分突破。"
           actions={
             <Link
               href="/history"
@@ -111,6 +132,28 @@ export default function EssayPage() {
           {/* 左栏：输入区域 */}
           <Card className="p-5 sm:p-6">
             <h2 className="text-lg font-medium text-ink mb-5">输入区域</h2>
+
+            {/* 批改模式切换 */}
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-ink mb-2">批改模式</label>
+              <div className="inline-flex rounded-lg border border-border bg-surface-muted p-1 gap-1">
+                {MODE_TABS.map((t) => (
+                  <button
+                    key={t.key}
+                    type="button"
+                    onClick={() => setMode(t.key)}
+                    disabled={streaming}
+                    className={`h-9 px-4 rounded-md text-sm font-medium transition-colors ${
+                      mode === t.key
+                        ? "bg-accent text-white"
+                        : "text-ink-secondary hover:text-ink"
+                    }`}
+                  >
+                    {t.label}
+                  </button>
+                ))}
+              </div>
+            </div>
 
             {/* 题目材料和问题输入区域 */}
             <div className="mb-6">
@@ -170,20 +213,22 @@ export default function EssayPage() {
               </div>
             </div>
 
-            {/* 阅卷模型选择 */}
-            <ModelSelector
-              providers={providers}
-              selected={selectedIds}
-              onChange={setSelectedIds}
-              disabled={state.isStreaming}
-            />
+            {/* 阅卷模型选择（仅多模型模式） */}
+            {mode === "multi" && (
+              <ModelSelector
+                providers={providers}
+                selected={selectedIds}
+                onChange={setSelectedIds}
+                disabled={streaming}
+              />
+            )}
 
             {/* 进度条 */}
-            {state.isStreaming && (
+            {streaming && (
               <div className="mb-6">
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-sm text-ink-secondary">
-                    {state.statusText || "AI 正在分析中..."}
+                    {statusText || "AI 正在分析中..."}
                   </span>
                   <span className="text-sm font-medium text-ink">
                     {Math.min(100, Math.round(progress))}%
@@ -195,9 +240,9 @@ export default function EssayPage() {
 
             {/* 提交按钮：手机端吸底 */}
             <div className="sticky bottom-20 lg:static pt-1">
-              {state.isStreaming ? (
+              {streaming ? (
                 <Button
-                  onClick={stop}
+                  onClick={mode === "dual" ? dual.stop : multi.stop}
                   className="w-full"
                   size="lg"
                   variant="secondary"
@@ -208,12 +253,16 @@ export default function EssayPage() {
               ) : (
                 <Button
                   onClick={handleSubmit}
-                  disabled={!questionMaterial.trim() || !myAnswer.trim() || selectedIds.length === 0}
+                  disabled={
+                    !questionMaterial.trim() ||
+                    !myAnswer.trim() ||
+                    (mode === "multi" && selectedIds.length === 0)
+                  }
                   className="w-full"
                   size="lg"
                 >
                   <SparkleIcon className="w-4 h-4" />
-                  开始 AI 批改
+                  {mode === "dual" ? "开始双角色批改" : "开始 AI 批改"}
                 </Button>
               )}
             </div>
@@ -221,8 +270,17 @@ export default function EssayPage() {
 
           {/* 右栏：结果展示区域 */}
           <div>
-            {state.providers.length === 0 && state.results.length === 0 ? (
-              !state.isStreaming ? (
+            {mode === "dual" ? (
+              dual.state.combined ? (
+                <DualRoleResultView
+                  combined={dual.state.combined}
+                  questionType={dual.state.questionType}
+                  questionTypeSource={dual.state.questionTypeSource}
+                  isStreaming={dual.state.isStreaming}
+                  standardAnswer={dual.standardAnswer}
+                  onFetchStandardAnswer={dual.fetchStandardAnswer}
+                />
+              ) : !dual.state.isStreaming ? (
                 /* 空状态 */
                 <div className="rounded-xl border border-dashed border-border bg-surface px-6 py-16 text-center">
                   <div className="w-12 h-12 mx-auto mb-4 rounded-full bg-surface-muted flex items-center justify-center">
@@ -249,19 +307,53 @@ export default function EssayPage() {
                   </div>
                   <div className="mt-8 text-center">
                     <p className="text-base text-ink-secondary">AI 正在智能分析中...</p>
-                    <p className="text-sm text-ink-tertiary mt-1.5">{state.statusText}</p>
+                    <p className="text-sm text-ink-tertiary mt-1.5">{statusText}</p>
                   </div>
                 </div>
               )
             ) : (
-              <MultiResultView
-                providers={state.providers}
-                results={state.results}
-                aggregate={state.aggregate}
-                questionType={state.questionType}
-                questionTypeSource={state.questionTypeSource}
-                isStreaming={state.isStreaming}
-              />
+              multi.state.providers.length === 0 && multi.state.results.length === 0 ? (
+                !multi.state.isStreaming ? (
+                  /* 空状态 */
+                  <div className="rounded-xl border border-dashed border-border bg-surface px-6 py-16 text-center">
+                    <div className="w-12 h-12 mx-auto mb-4 rounded-full bg-surface-muted flex items-center justify-center">
+                      <SparkleIcon className="w-6 h-6 text-ink-tertiary" />
+                    </div>
+                    <p className="font-serif text-lg text-ink">等待批改结果</p>
+                    <p className="mt-1 text-sm text-ink-tertiary">请先在左侧输入题目和作答</p>
+                  </div>
+                ) : (
+                  /* 加载中的骨架屏 */
+                  <div className="rounded-xl border border-border bg-surface p-5 animate-pulse">
+                    <div className="flex items-center justify-between mb-5">
+                      <div className="h-5 bg-surface-muted rounded w-24"></div>
+                      <div className="h-4 bg-surface-muted rounded w-16"></div>
+                    </div>
+                    <div className="mb-6">
+                      <div className="h-10 bg-surface-muted rounded-lg w-40 mb-3"></div>
+                      <div className="h-2.5 bg-surface-muted rounded-full w-full mb-2"></div>
+                    </div>
+                    <div className="space-y-3">
+                      <div className="h-6 bg-surface-muted rounded-lg w-full"></div>
+                      <div className="h-6 bg-surface-muted rounded-lg w-5/6"></div>
+                      <div className="h-6 bg-surface-muted rounded-lg w-4/6"></div>
+                    </div>
+                    <div className="mt-8 text-center">
+                      <p className="text-base text-ink-secondary">AI 正在智能分析中...</p>
+                      <p className="text-sm text-ink-tertiary mt-1.5">{statusText}</p>
+                    </div>
+                  </div>
+                )
+              ) : (
+                <MultiResultView
+                  providers={multi.state.providers}
+                  results={multi.state.results}
+                  aggregate={multi.state.aggregate}
+                  questionType={multi.state.questionType}
+                  questionTypeSource={multi.state.questionTypeSource}
+                  isStreaming={multi.state.isStreaming}
+                />
+              )
             )}
           </div>
         </div>

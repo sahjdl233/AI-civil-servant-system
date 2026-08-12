@@ -98,7 +98,9 @@ async def test_failure_isolated():
     done = [e for e in events if e["type"] == "done"][0]
     # 汇总只统计成功项
     assert done["aggregate"]["count"] == 1
-    assert done["aggregate"]["maxScore"] == done["results"][0]["score"]
+    # results 按任务完成顺序排列，失败任务通常先完成，需显式取成功项
+    success = [r for r in done["results"] if r.get("status") == "success"][0]
+    assert done["aggregate"]["maxScore"] == success["score"]
 
 
 @pytest.mark.asyncio
