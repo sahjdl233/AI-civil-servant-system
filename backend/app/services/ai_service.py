@@ -22,6 +22,7 @@ from .prompt_service_simple import (
     get_question_type_dimensions
 )
 from .prompt_service import extract_chapter_content
+from . import prompt_library_service
 
 logger = logging.getLogger(__name__)
 
@@ -282,10 +283,9 @@ async def grade_essay_with_expert_diagnosis(provider: BaseLLMProvider, essay_con
         logger.info("开始第一阶段：AI专家诊断分析（模型: %s）...", provider.name)
         # 确保所有文本都正确编码
         clean_diagnosis_prompt = clean_unicode_text(diagnosis_prompt)
-        clean_user_content = clean_unicode_text("你是一位资深申论阅卷专家。请进行专业的逐句批改诊断。\n\n" + clean_diagnosis_prompt)
         
         diagnosis_result = await provider.chat(
-            messages=[{"role": "user", "content": clean_user_content}],
+            messages=[{"role": "user", "content": clean_diagnosis_prompt}],
             temperature=0.2,
             max_tokens=2048,  # 减少token数量以提高响应速度
             timeout=float(provider.timeout)
@@ -314,10 +314,9 @@ async def grade_essay_with_expert_diagnosis(provider: BaseLLMProvider, essay_con
         logger.info("开始第二阶段：整体评价生成（模型: %s）...", provider.name)
         # 确保所有文本都正确编码
         clean_evaluation_prompt = clean_unicode_text(evaluation_prompt)
-        clean_eval_content = clean_unicode_text("请基于第一阶段的专业诊断结果，生成整体评价。\n\n" + clean_evaluation_prompt)
         
         evaluation_result = await provider.chat(
-            messages=[{"role": "user", "content": clean_eval_content}],
+            messages=[{"role": "user", "content": clean_evaluation_prompt}],
             temperature=0.2,
             max_tokens=1024,  # 减少token数量以提高响应速度
             timeout=float(provider.timeout)
@@ -627,49 +626,14 @@ async def get_question_type_from_ai(question_text: str, provider: Optional[BaseL
             from .providers.registry import ProviderRegistry
             provider = await ProviderRegistry.get_instance().get_default()
 
-        # 为避免偏置，仅使用中立定义进行识别
-        prompt = """你是申论题型专家"悟道"，基于《申论四大题型核心秘籍》进行题型识别。
-
-=== 申论四大题型核心识别要点 ===
-1. **概括题**：要求"概括"、"归纳"、"梳理"某些要点、做法、原因、变化等
-   - 关键词：概括、归纳、梳理、总结、列举
-   - 特征：信息降维与逻辑重建
-   - 注意：题目通常只要求列出要点，不要求深入分析关系
-    
-2. **综合分析题**：要求"分析"、"谈谈理解"、"评价"、"说明"某个观点、现象、词语
-   - 关键词：分析、理解、谈谈、评价、如何看待、说明、阐述、解释
-   - 特征：解构与重构的逻辑思辨
-   - 注意：题目往往要求不仅说明"是什么"，还要分析"为什么"、"如何"等深层关系
-    
-3. **对策题**：要求提出"对策"、"建议"、"措施"、"怎么办"
-   - 关键词：对策、建议、措施、办法、如何解决
-   - 特征：对症下药的精准施策
-    
-4. **应用文写作题**：要求写"倡议书"、"讲话稿"、"报告"、"通知"等格式化文体
-   - 关键词：写、拟、起草 + 具体文种名称
-   - 特征：带着镣铐的场景之舞
-
-=== 待识别内容 ===
-{}
-
-=== 识别要求 ===
-请严格按照申论四大题型核心秘籍的标准，分析上述内容的题型特征：
-
-1. **关键动词识别**：重点关注"谈谈"、"说明"、"分析"等词汇（这些通常是综合分析题）
-2. **任务层次分析**：
-   - 如果只要求列出要点 → 概括题
-   - 如果要求解释含义+分析关系 → 综合分析题
-   - 如果要求提出解决方案 → 对策题
-   - 如果要求写特定格式文档 → 应用文写作题
-3. **特别注意**：题目中同时出现"是什么"+"如何"+"为什么"等多层次要求时，通常是综合分析题
-
-请只返回以下四个选项中的一个：
-- 概括题
-- 综合分析题  
-- 对策题
-- 应用文写作题
-
-判断结果：""".format(question_text)
+        # 为避免偏置，仅使用中立定义进行识别（库优先，内置兜底）
+        prompt = prompt_library_service.render_template(
+            "qtype_detection", {"question": question_text}
+        )
+        if prompt is None:
+            prompt = prompt_library_service.render_default_template(
+                "qtype_detection", {"question": question_text}
+            )
 
         # 确保prompt文本正确编码
         clean_prompt = clean_unicode_text(prompt)

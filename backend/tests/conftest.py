@@ -27,7 +27,7 @@ def event_loop():
 @pytest.fixture(autouse=True)
 def _clean_db():
     from app.db.database import Base, engine
-    from app.models import provider, history  # noqa: F401
+    from app.models import provider, history, prompt  # noqa: F401
 
     # 安全护栏：测试只能在 SQLite 上运行，绝不允许触碰真实数据库
     assert make_url(engine.url).get_backend_name() == "sqlite", (

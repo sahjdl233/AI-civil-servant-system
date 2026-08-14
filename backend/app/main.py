@@ -4,8 +4,9 @@ from fastapi.responses import JSONResponse, RedirectResponse
 import traceback
 import logging
 from app.api.endpoints import essay
-from .api.endpoints import question, assessment, practice, providers, dual_role
+from .api.endpoints import question, assessment, practice, providers, dual_role, prompts
 from app.services.provider_service import ensure_seeded, migrate_plaintext_keys
+from app.services.prompt_library_service import ensure_seeded as ensure_prompts_seeded
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -21,13 +22,14 @@ app = FastAPI(
 
 @app.on_event("startup")
 async def on_startup():
-    """启动时确保 ai_providers 表存在并完成环境变量种子。"""
+    """启动时确保数据表存在并完成种子（Provider + Prompt Library）。"""
     try:
         from app.db.database import Base, engine
-        from app.models import provider  # noqa: F401  注册模型
+        from app.models import provider, prompt  # noqa: F401  注册模型
         Base.metadata.create_all(bind=engine)
         ensure_seeded()
         migrate_plaintext_keys()
+        ensure_prompts_seeded()
     except Exception as e:
         logger.error("启动种子失败: %s", str(e))
 
@@ -128,6 +130,9 @@ app.include_router(providers.router, prefix="/api/v1", tags=["providers"])
 
 # Include dual-role grading API routes
 app.include_router(dual_role.router, prefix="/api/v1", tags=["essay"])
+
+# Include prompt library management API routes
+app.include_router(prompts.router, prefix="/api/v1", tags=["prompts"])
 
 # Root redirects to admin dashboard for easier access
 @app.get("/")

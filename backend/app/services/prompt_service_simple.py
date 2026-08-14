@@ -4,16 +4,23 @@
 """
 简化版的prompt服务 - 修复f-string问题
 支持不同题型的评分维度
+
+诊断与整体评价 Prompt 均为「库优先、内置兜底」：已发布模板（Prompt Library）
+优先，未发布/停用时回退内置默认（prompt_defaults，与种子同源）。
+动态维度 JSON 与四步法描述仍由代码生成，注入 {{dimensions}} / {{methodology_description}}。
 """
+
+from app.services import prompt_library_service
+
 
 def get_question_type_dimensions(question_type: str) -> dict:
     """根据题型返回对应的评分维度和满分 - 基于申论四大题型核心秘籍"""
-    
+
     dimensions_mapping = {
         "概括题": {
             "审题定标": 25,      # 第一步：审题定标——明确"概括谁"、"在哪找"、"怎么答"
             "精准找点": 30,      # 第二步：精准找点——遵循材料，地毯式搜寻关键信息
-            "逻辑归并": 25,      # 第三步：逻辑归并——分类合并，提炼升华核心要点  
+            "逻辑归并": 25,      # 第三步：逻辑归并——分类合并，提炼升华核心要点
             "规范成文": 20       # 第四步：规范成文——总分有序，清晰呈现
         },
         "综合分析题": {
@@ -30,19 +37,19 @@ def get_question_type_dimensions(question_type: str) -> dict:
         },
         "应用文写作题": {
             "情境解构": 25,      # 第一步：情境解构（黄金三问）——我是谁？写给谁？为什么写？
-            "格式遵从": 20,      # 第二步：格式遵从——"穿对衣服"，才能"登对场合"  
+            "格式遵从": 20,      # 第二步：格式遵从——"穿对衣服"，才能"登对场合"
             "内容组织": 30,      # 第三步：内容组织与逻辑构建——言之有物，条理清晰
             "语言匹配": 25       # 第四步：语言风格与语气匹配——"说什么话"，要看"对谁说"
         }
     }
-    
+
     # 默认使用概括题的维度
     return dimensions_mapping.get(question_type, dimensions_mapping["概括题"])
 
 
 def get_methodology_description(question_type: str) -> str:
     """根据题型返回对应的四步法方法论描述"""
-    
+
     methodology_descriptions = {
         "概括题": """
 第一步：审题定标——明确"概括谁"、"在哪找"、"怎么答"
@@ -50,21 +57,21 @@ def get_methodology_description(question_type: str) -> str:
 第三步：逻辑归并——分类合并，提炼升华核心要点
 第四步：规范成文——总分有序，清晰呈现
         """,
-        
+
         "综合分析题": """
 第一步：审题拆解——识别分析类型，锁定核心对象
 第二步：搜寻组件——带着问题阅读，寻找逻辑关系
 第三步：逻辑重构——搭建分析框架，串联论证链条
 第四步：规范作答——观点前置，论述清晰
         """,
-        
+
         "对策题": """
 第一步：精准问题诊断——找到"病根"，才能开"药方"
 第二步：角色定位与视角锁定——"谁来解决"，决定"能怎么解决"
 第三步：从材料中寻找对策来源——对策是"找"与"创"的结合
 第四步：结构化与"动词化"呈现——让对策清晰有力，具备可操作性
         """,
-        
+
         "应用文写作题": """
 第一步：情境解构（黄金三问）——我是谁？写给谁？为什么写？
 第二步：格式遵从——"穿对衣服"，才能"登对场合"
@@ -72,154 +79,52 @@ def get_methodology_description(question_type: str) -> str:
 第四步：语言风格与语气匹配——"说什么话"，要看"对谁说"
         """
     }
-    
+
     return methodology_descriptions.get(question_type, methodology_descriptions["概括题"]).strip()
 
 
-def create_expert_diagnosis_prompt(essay_content: str, question_type: str) -> str:
-    """创建专家诊断式批改prompt - 增强版本，基于申论四大题型核心秘籍"""
-    
-    # 获取该题型对应的评分维度
+def _build_dimensions_json(question_type: str) -> str:
+    """按题型动态生成维度 JSON 块（含 HTML 样式与评分提示）。"""
     dimensions = get_question_type_dimensions(question_type)
-    
-    # 动态构建JSON模板，每个维度都有详细的评分指导
+
     dimensions_json = ""
     for dim_name, max_score in dimensions.items():
         # 根据维度权重智能设置初始分数
         initial_score = int(max_score * 0.75)  # 默认75%作为基准
-        
+
         dimensions_json += '''    "{}": {{
       "score": {},
       "feedback": "<span style='color: #1e40af; font-weight: bold;'>【得分点】</span>\n• 对学生表现出色的地方进行具体分析，如有具体表述可引用，格式为：'学生的具体表述' - 说明为什么这体现了{}能力\n• 分析优秀之处和加分因素\n\n<span style='color: #1e40af; font-weight: bold;'>【扣分点】</span>\n• 指出学生答题中的具体问题，如有问题表述可引用则引用\n• 分析失分原因和改进空间\n\n<span style='color: #1e40af; font-weight: bold;'>【改进方向】</span>\n• 提供3-4条具体可操作的改进建议\n• 如需改写示例，格式为：原表述'...' → 建议改为'...'，说明改进理由\n\n要求：尽量引用学生具体表述进行分析，但应自然合理，不可强求。深度分析，字数150-200字"
     }},
 '''.format(dim_name, initial_score, dim_name)
-    
+
     # 移除最后的逗号
-    dimensions_json = dimensions_json.rstrip(',\n')
-    
-    prompt = """你是"悟道"，资深申论阅卷专家，具有20年申论批改经验。现在要对这篇{}进行基于《申论四大题型核心秘籍》的专业诊断式批改。
+    return dimensions_json.rstrip(',\n')
 
-=== 核心任务 ===
-严格按照申论四大题型核心秘籍的四步法方法论，对学生答案进行深度的逐句专业批改。
 
-=== 学生答题内容 ===
-{}
-
-=== {}评分标准（基于申论四大题型核心秘籍） ===
-四步法方法论要求：
-{}
-
-=== 专业批改核心要求 ===
-作为资深申论阅卷专家，请严格遵循以下批改原则：
-
-🎯 **引用分析要求**：
-- 每个分析点都必须引用学生的具体原文，格式："您写的'具体原文内容'"
-- 不能使用"某部分"、"开头段"等模糊表述
-- 必须逐句分析，指出具体的得分失分原因
-
-🔍 **方法论对照要求**：
-- 严格对照四步法方法论的每个步骤要求
-- 指出学生在哪些方面符合了方法论，哪些方面违背了要求
-- 结合申论核心秘籍的具体要求进行专业点评
-
-📋 **格式标准化要求**：
-- 每个维度的feedback必须使用HTML蓝色加粗格式
-- 严格按照：<span style='color: #1e40af; font-weight: bold;'>【得分点】</span>
-- 严格按照：<span style='color: #1e40af; font-weight: bold;'>【扣分点】</span>  
-- 严格按照：<span style='color: #1e40af; font-weight: bold;'>【改进方向】</span>
-- 禁止使用任何表情符号（✅❌💡等）
-
-💡 **深度分析要求**：
-- 每个维度分析不少于150字，必须有深度
-- 提供具体的改写示例：原文"..." → 建议改为"..."
-- 给出可操作的改进建议，不能流于表面
-
-=== 输出格式 ===
-请严格按照以下JSON格式返回：
-
-{{
-  "dimensions": {{
-{}
-  }},
-  "summary": "基于申论四大题型核心秘籍方法论，对这篇{}答案的整体质量评价和核心问题诊断",
-  "teacher_comments": "作为资深申论阅卷专家'悟道'的深度专业诊断：\n\n1. **方法论应用分析**：结合四步法逐步分析学生的答题表现\n2. **核心亮点识别**：引用具体原文，说明符合方法论的优秀之处\n3. **关键问题诊断**：指出违背方法论的具体问题和根本原因\n4. **系统提升路径**：基于核心秘籍提供针对性的改进方案\n\n要求：必须引用学生原文，结合方法论要求，提供300字以上的深度专业分析"
-}}
-
-⚠️ **严格要求**：
-- 只返回JSON，不要任何解释文字
-- 每个维度分析必须引用学生原文
-- teacher_comments必须基于四步法方法论深度分析
-- 所有标题使用HTML蓝色加粗格式
-
-请开始专业批改：""".format(
-        question_type, 
-        essay_content, 
-        question_type,
-        get_methodology_description(question_type),
-        dimensions_json,
-        question_type
-    )
-
-    return prompt
+def create_expert_diagnosis_prompt(essay_content: str, question_type: str) -> str:
+    """创建专家诊断式批改prompt - 增强版本，基于申论四大题型核心秘籍"""
+    key = prompt_library_service.resolve_diagnosis_key(question_type)
+    vars = {
+        "question_type": question_type,
+        "essay_content": essay_content,
+        "dimensions": _build_dimensions_json(question_type),
+        "methodology_description": get_methodology_description(question_type),
+    }
+    rendered = prompt_library_service.render_template(key, vars)
+    if rendered is not None:
+        return rendered
+    return prompt_library_service.render_default_template(key, vars)
 
 
 def create_overall_evaluation_prompt(diagnosis_result: dict, essay_content: str, question_type: str) -> str:
     """创建整体评价prompt - 增强版本，基于诊断结果生成高质量总评"""
-    
-    prompt = """基于第一阶段的专业诊断结果，作为资深申论阅卷专家"悟道"，请对这篇{}进行最终综合评价。
-
-=== 第一阶段诊断结果 ===
-{}
-
-=== 学生答题内容 ===
-{}
-
-=== 最终评价任务 ===
-基于诊断结果和申论四大题型核心秘籍的方法论要求，生成综合性最终评价：
-
-🎯 **评分计算要求**：
-- 根据各维度得分，计算准确的总分（满分100分）
-- 确保评分合理性，符合申论评分标准
-
-📝 **整体评价要求**：
-- 必须引用学生的具体原文进行分析
-- 结合四步法方法论指出核心优缺点
-- 评价要有深度，不能流于表面
-
-💡 **建议生成要求**：
-- priority_suggestions：3-4条最关键的改进建议，每条都要具体可操作
-- strengths_to_maintain：2-3个需要保持的优点，引用具体表现
-- 所有建议都要基于方法论要求和诊断发现
-
-🔍 **专业点评要求**：
-- final_comments必须是300字以上的深度专业分析
-- 必须结合学生原文和诊断结果
-- 提供系统性的提升路径和具体指导
-
-=== 输出格式 ===
-严格按照以下JSON格式返回：
-
-{{
-  "total_score": [根据各维度得分计算的准确总分],
-  "overall_evaluation": "作为专业阅卷老师对这篇{}答案的整体评价：结合四步法方法论，引用学生具体原文，总结核心优缺点和整体水平。要求具体深入，不少于150字。",
-  "priority_suggestions": [
-    "基于方法论的最重要改进建议1：引用学生原文+具体改进方法",
-    "基于方法论的最重要改进建议2：引用学生原文+具体改进方法", 
-    "基于方法论的最重要改进建议3：引用学生原文+具体改进方法"
-  ],
-  "strengths_to_maintain": [
-    "需要保持的优点1：引用学生具体表现+符合的方法论要求",
-    "需要保持的优点2：引用学生具体表现+符合的方法论要求"
-  ],
-  "final_comments": "作为资深申论阅卷专家'悟道'的最终专业点评：\n\n**一、整体表现分析**\n基于四步法方法论，分析这篇答案的整体质量和突出特点\n\n**二、核心优势总结**\n引用学生原文，说明符合申论标准的优秀表现\n\n**三、关键问题诊断**\n结合诊断结果，深入分析主要失分原因和改进空间\n\n**四、系统提升建议**\n基于核心秘籍，提供具体的能力提升路径和操作方法\n\n要求：必须引用学生原文，结合方法论和诊断结果，提供350字以上的深度专业指导"
-}}
-
-⚠️ **严格要求**：
-- 只返回JSON数据，不要任何前缀后缀
-- 所有评价都要引用学生具体原文
-- 基于诊断结果和方法论要求进行深度分析
-- final_comments必须有实质性的专业指导价值
-
-请开始最终评价：""".format(question_type, str(diagnosis_result), essay_content, question_type)
-
-    return prompt
+    vars = {
+        "question_type": question_type,
+        "diagnosis_result": str(diagnosis_result),
+        "essay_content": essay_content,
+    }
+    rendered = prompt_library_service.render_template("overall_evaluation", vars)
+    if rendered is not None:
+        return rendered
+    return prompt_library_service.render_default_template("overall_evaluation", vars)

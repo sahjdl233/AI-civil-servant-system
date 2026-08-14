@@ -8,6 +8,7 @@ import Badge from "../../../components/ui/Badge";
 import Button from "../../../components/ui/Button";
 import PageHeader from "../../../components/ui/PageHeader";
 import type { AiProvider, ProviderPayload, ProviderTestResult } from "../../../types/provider";
+import PromptLibraryPanel from "../../../components/admin/PromptLibraryPanel";
 import {
   AlertIcon,
   CheckIcon,
@@ -54,6 +55,7 @@ export default function AdminProvidersPage() {
   const [testingId, setTestingId] = useState<string | null>(null);
   const [testResults, setTestResults] = useState<Record<string, ProviderTestResult>>({});
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<"providers" | "prompts">("providers");
 
   // 表单状态
   const [form, setForm] = useState<ProviderPayload>({
@@ -207,16 +209,45 @@ export default function AdminProvidersPage() {
 
       <div className="mx-auto max-w-6xl px-4 py-8">
         <PageHeader
-          title="模型设置"
-          description="配置阅卷 AI Provider（API Base URL / 密钥 / 模型），可自由添加 OpenAI / Claude / Gemini / DeepSeek / Qwen / 自定义模型。"
+          title="设置"
+          description="配置阅卷 AI Provider（API Base URL / 密钥 / 模型），以及维护 Prompt 库（题型识别、诊断、阅卷、Coach、Consensus 等模板）。"
           actions={
-            <Button onClick={openCreate}>
-              <PlusIcon className="w-4 h-4" />
-              新增 Provider
-            </Button>
+            activeTab === "providers" ? (
+              <Button onClick={openCreate}>
+                <PlusIcon className="w-4 h-4" />
+                新增 Provider
+              </Button>
+            ) : undefined
           }
         />
 
+        <div className="mb-6 inline-flex items-center gap-1 p-1 bg-surface-muted rounded-xl border border-border">
+          <button
+            onClick={() => setActiveTab("providers")}
+            className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
+              activeTab === "providers"
+                ? "bg-surface text-ink shadow-sm"
+                : "text-ink-tertiary hover:text-ink"
+            }`}
+          >
+            设置
+          </button>
+          <button
+            onClick={() => setActiveTab("prompts")}
+            className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
+              activeTab === "prompts"
+                ? "bg-surface text-ink shadow-sm"
+                : "text-ink-tertiary hover:text-ink"
+            }`}
+          >
+            Prompt 库
+          </button>
+        </div>
+
+        {activeTab === "prompts" ? (
+          <PromptLibraryPanel />
+        ) : (
+          <>
         {error && (
           <div className="mb-6 p-4 rounded-xl bg-danger/10 text-danger border border-danger/20 flex items-center">
             <AlertIcon className="w-5 h-5 mr-2 flex-shrink-0" />
@@ -354,6 +385,8 @@ export default function AdminProvidersPage() {
             </table>
           </div>
         </Card>
+          </>
+        )}
       </div>
 
       {/* 新增/编辑弹窗 */}

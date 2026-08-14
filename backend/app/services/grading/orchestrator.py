@@ -10,14 +10,18 @@
 """
 
 import asyncio
+import json
 import logging
 import statistics
 from typing import AsyncGenerator, Dict, List, Optional, Tuple
 
 from app.services.ai_service import (
+    clean_unicode_text,
+    try_parse_json_response,
     grade_essay_with_provider,
     get_question_type_from_ai,
 )
+from app.services import prompt_library_service
 from app.services.providers import (
     BaseLLMProvider,
     ProviderRegistry,
@@ -110,10 +114,48 @@ async def _grade_one(
         return _normalize_result(provider, result)
 
 
+async def _generate_consensus(results: List[dict], aggregate: dict) -> Optional[dict]:
+    """基于 Consensus Prompt 生成多模型 AI 汇总。无默认 Provider / 未发布模板时返回 None。"""
+    registry = ProviderRegistry.get_instance()
+    try:
+        provider = await registry.get_default()
+    except ProviderNotFoundError:
+        return None
+    rendered = prompt_library_service.render_template(
+        "consensus_prompt",
+        {
+            "model_results": json.dumps(results, ensure_ascii=False),
+            "aggregate": json.dumps(aggregate, ensure_ascii=False),
+        },
+    )
+    if rendered is None:
+        return None
+    result = await provider.chat(
+        messages=[{"role": "user", "content": clean_unicode_text(rendered)}],
+        temperature=0.2,
+        max_tokens=1024,
+        timeout=float(provider.timeout),
+    )
+    content = result.content
+    if not content:
+        raise ValueError("consensus 返回空响应")
+    raw = try_parse_json_response(content, "共识汇总")
+    if not raw or not isinstance(raw, dict):
+        raise ValueError("consensus 输出无法解析为 JSON")
+    return {
+        "consensusScore": raw.get("consensus_score"),
+        "agreement": raw.get("agreement", ""),
+        "disagreements": raw.get("disagreements", []),
+        "combinedFeedback": raw.get("combined_feedback", ""),
+        "finalSuggestions": raw.get("final_suggestions", []),
+    }
+
+
 async def grade_multi_stream(
     content: str,
     question_type: Optional[str],
     provider_ids: List[str],
+    consensus: bool = False,
 ) -> AsyncGenerator[dict, None]:
     """
     SSE 事件流生成器。事件类型：
@@ -190,4 +232,12 @@ async def grade_multi_stream(
 
     # 4. 汇总对比
     aggregate = build_aggregate(results)
-    yield {"type": "done", "results": results, "aggregate": aggregate}
+    done_event = {"type": "done", "results": results, "aggregate": aggregate}
+    if consensus:
+        try:
+            consensus_data = await _generate_consensus(results, aggregate)
+            if consensus_data is not None:
+                done_event["consensus"] = consensus_data
+        except Exception as e:
+            logger.warning("共识汇总生成失败: %s", str(e)[:200])
+    yield done_event

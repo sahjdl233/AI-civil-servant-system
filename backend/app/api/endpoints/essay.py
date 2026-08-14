@@ -412,7 +412,7 @@ async def grade_essay_multi(submission: MultiGradingRequest):
             final_results = None
             final_aggregate = None
             async for event in grade_multi_stream(
-                submission.content, submission.question_type, submission.provider_ids
+                submission.content, submission.question_type, submission.provider_ids, submission.consensus
             ):
                 if event.get("type") == "done":
                     final_results = event.get("results")

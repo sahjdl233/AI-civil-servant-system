@@ -52,3 +52,4 @@ class MultiGradingRequest(BaseModel):
     content: str = Field(..., min_length=1, description="题目材料 + 作答")
     question_type: Optional[str] = Field(None, description="题型")
     provider_ids: List[str] = Field(default=[], description="选中的 Provider ID 列表，空则用默认模型")
+    consensus: bool = Field(False, description="是否生成 AI 共识汇总（Consensus Prompt）")
