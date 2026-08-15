@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
 from app.schemas.essay import EssaySubmission
-from app.schemas.provider import MultiGradingRequest
+from app.schemas.provider import MultiGradingRequest, CredibilityRequest
 from app.services.ai_service import (
     get_question_type_from_ai,
     grade_essay_with_ai,
@@ -15,6 +15,7 @@ from app.services.ai_service_simple import (
     get_question_type_simple
 )
 from app.services.grading.orchestrator import grade_multi_stream
+from app.services.credibility.orchestrator import grade_credibility_stream
 from app.core.config import settings
 from app.services.providers import ProviderRegistry, ProviderNotFoundError
 import logging
@@ -441,6 +442,77 @@ async def grade_essay_multi(submission: MultiGradingRequest):
                 )
         except Exception as e:
             logger.error(f"多模型评分异常: {str(e)}")
+            error_event = {
+                "type": "error",
+                "status": "评分失败",
+                "message": "AI评分服务异常，请稍后重试",
+                "error": str(e)[:200],
+            }
+            yield (f"data: {json.dumps(error_event, ensure_ascii=False)}\n\n").encode("utf-8", errors="replace")
+
+    return StreamingResponse(
+        generate(),
+        media_type="text/event-stream; charset=utf-8",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
+
+
+@router.post("/essays/grade-credibility")
+async def grade_essay_credibility(submission: CredibilityRequest):
+    """
+    评分可信度接口（SSE 流式）
+    同一篇作文连续评分 N 次（默认 3），依据分数离散程度展示可信度星级与说明。
+    事件流：
+      runs_started -> run_result|run_error xN -> done(可信度结论)
+    """
+    logger.info("=== 评分可信度开始 ===")
+    logger.info(f"Content length: {len(submission.content)}")
+    logger.info(f"Provider id: {submission.provider_id}, rounds: {submission.rounds}")
+
+    async def generate():
+        try:
+            final_result = None
+            async for event in grade_credibility_stream(
+                submission.content,
+                submission.question_type,
+                submission.provider_id,
+                submission.rounds,
+            ):
+                if event.get("type") == "done":
+                    final_result = event
+                yield (f"data: {json.dumps(event, ensure_ascii=False)}\n\n").encode("utf-8", errors="replace")
+
+            # 持久化历史
+            if final_result:
+                response_data = {
+                    "rounds": final_result.get("rounds"),
+                    "scores": final_result.get("scores"),
+                    "statistics": final_result.get("statistics"),
+                    "credibilityScore": final_result.get("credibilityScore"),
+                    "stars": final_result.get("stars"),
+                    "level": final_result.get("level"),
+                    "explanation": final_result.get("explanation"),
+                    "riskNote": final_result.get("riskNote"),
+                    "failedRounds": final_result.get("failedRounds"),
+                    "questionType": final_result.get("questionType"),
+                }
+                append_history(
+                    kind="grade_credibility",
+                    request={
+                        "content": submission.content,
+                        "question_type": submission.question_type,
+                        "provider_id": submission.provider_id,
+                        "rounds": final_result.get("rounds"),
+                    },
+                    response=response_data,
+                    extra={"credibility_score": final_result.get("credibilityScore")},
+                )
+        except Exception as e:
+            logger.error(f"评分可信度异常: {str(e)}")
             error_event = {
                 "type": "error",
                 "status": "评分失败",

@@ -53,3 +53,11 @@ class MultiGradingRequest(BaseModel):
     question_type: Optional[str] = Field(None, description="题型")
     provider_ids: List[str] = Field(default=[], description="选中的 Provider ID 列表，空则用默认模型")
     consensus: bool = Field(False, description="是否生成 AI 共识汇总（Consensus Prompt）")
+
+
+class CredibilityRequest(BaseModel):
+    """评分可信度请求：同一作文连续评分 N 次"""
+    content: str = Field(..., min_length=1, description="题目材料 + 作答")
+    question_type: Optional[str] = Field(None, description="题型")
+    provider_id: Optional[str] = Field(None, description="使用的 Provider ID，空则用默认模型")
+    rounds: Optional[int] = Field(None, ge=2, le=5, description="评分轮数（默认取服务端配置）")

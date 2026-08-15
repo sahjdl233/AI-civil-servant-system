@@ -156,3 +156,69 @@ export interface DualDoneEvent {
   questionType?: string;
   questionTypeSource?: string;
 }
+
+/* ---------- 评分可信度类型 ---------- */
+
+export interface CredibilityStatistics {
+  mean: number;
+  min: number;
+  max: number;
+  range: number;
+  stdDev: number;
+}
+
+export interface FailedRound {
+  index: number;
+  message: string;
+}
+
+export interface CredibilityResult {
+  rounds: number;
+  scores: number[];
+  statistics: CredibilityStatistics | null;
+  credibilityScore: number | null;
+  stars: number;
+  level: string;
+  explanation: string;
+  riskNote: string;
+  failedRounds: FailedRound[];
+  hasScore: boolean;
+}
+
+export interface RunsStartedEvent {
+  type: "runs_started";
+  rounds: number;
+  provider: ProviderRef;
+  questionType?: string;
+  questionTypeSource?: string;
+}
+
+export interface RunResultEvent {
+  type: "run_result";
+  index: number;
+  score: number;
+  status: "success";
+  provider: ProviderRef;
+}
+
+export interface RunErrorEvent {
+  type: "run_error";
+  index: number;
+  status: "error";
+  message: string;
+  provider: ProviderRef;
+}
+
+export interface CredibilityDoneEvent {
+  type: "done";
+  rounds: number;
+  scores: number[];
+  statistics: CredibilityStatistics | null;
+  credibilityScore: number | null;
+  stars: number;
+  level: string;
+  explanation: string;
+  riskNote: string;
+  failedRounds: FailedRound[];
+  hasScore: boolean;
+}
