@@ -154,6 +154,7 @@ async def test_provider(provider_id: str) -> dict:
             temperature=0.0,
             max_tokens=8,
             timeout=30,
+            scene="test",
         )
         latency = int((time.time() - start) * 1000)
         return {"ok": True, "message": "连接成功", "latency_ms": latency}

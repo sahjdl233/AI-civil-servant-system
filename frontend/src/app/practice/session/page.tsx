@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import Navigation from '../../../components/Navigation';
 import { API_BASE_URL } from '../../../config/api';
 import Image from 'next/image';

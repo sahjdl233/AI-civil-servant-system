@@ -135,6 +135,7 @@ async def _generate_consensus(results: List[dict], aggregate: dict) -> Optional[
         temperature=0.2,
         max_tokens=1024,
         timeout=float(provider.timeout),
+        scene="consensus",
     )
     content = result.content
     if not content:

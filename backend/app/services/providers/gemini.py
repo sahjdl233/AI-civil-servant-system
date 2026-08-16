@@ -12,7 +12,7 @@ from typing import Dict, List, Optional
 
 import httpx
 
-from .base import BaseLLMProvider, ProviderChatResult
+from .base import BaseLLMProvider, ProviderChatResult, LLMUsage
 
 logger = logging.getLogger(__name__)
 
@@ -30,6 +30,7 @@ class GeminiProvider(BaseLLMProvider):
         temperature: float = 0.2,
         max_tokens: int = 2048,
         timeout: Optional[float] = None,
+        scene: Optional[str] = None,
     ) -> ProviderChatResult:
         # 转换 OpenAI 风格 messages -> Gemini contents
         contents = []
@@ -66,4 +67,16 @@ class GeminiProvider(BaseLLMProvider):
         for candidate in data.get("candidates", []) or []:
             for part in (candidate.get("content") or {}).get("parts", []) or []:
                 text += part.get("text", "")
-        return ProviderChatResult(content=text or "", raw=data)
+
+        usage = None
+        um = data.get("usageMetadata") or {}
+        if um:
+            prompt_tokens = int(um.get("promptTokenCount") or 0)
+            completion_tokens = int(um.get("candidatesTokenCount") or 0)
+            usage = LLMUsage(
+                prompt_tokens=prompt_tokens,
+                completion_tokens=completion_tokens,
+                total_tokens=prompt_tokens + completion_tokens,
+            )
+        self._record_usage(data, scene, usage)
+        return ProviderChatResult(content=text or "", raw=data, usage=usage)

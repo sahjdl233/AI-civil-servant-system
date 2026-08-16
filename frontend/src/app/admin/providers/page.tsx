@@ -9,6 +9,7 @@ import Button from "../../../components/ui/Button";
 import PageHeader from "../../../components/ui/PageHeader";
 import type { AiProvider, ProviderPayload, ProviderTestResult } from "../../../types/provider";
 import PromptLibraryPanel from "../../../components/admin/PromptLibraryPanel";
+import UsageStatsPanel from "../../../components/admin/UsageStatsPanel";
 import {
   AlertIcon,
   CheckIcon,
@@ -55,7 +56,7 @@ export default function AdminProvidersPage() {
   const [testingId, setTestingId] = useState<string | null>(null);
   const [testResults, setTestResults] = useState<Record<string, ProviderTestResult>>({});
   const [deletingId, setDeletingId] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<"providers" | "prompts">("providers");
+  const [activeTab, setActiveTab] = useState<"providers" | "prompts" | "usage">("providers");
 
   // 表单状态
   const [form, setForm] = useState<ProviderPayload>({
@@ -242,10 +243,22 @@ export default function AdminProvidersPage() {
           >
             Prompt 库
           </button>
+          <button
+            onClick={() => setActiveTab("usage")}
+            className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
+              activeTab === "usage"
+                ? "bg-surface text-ink shadow-sm"
+                : "text-ink-tertiary hover:text-ink"
+            }`}
+          >
+            用量统计
+          </button>
         </div>
 
         {activeTab === "prompts" ? (
           <PromptLibraryPanel />
+        ) : activeTab === "usage" ? (
+          <UsageStatsPanel />
         ) : (
           <>
         {error && (

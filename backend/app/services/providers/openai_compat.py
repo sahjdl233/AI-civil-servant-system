@@ -12,7 +12,7 @@ import logging
 from typing import Any, Dict, List, Optional
 
 from openai import AsyncOpenAI
-from .base import BaseLLMProvider, ProviderChatResult
+from .base import BaseLLMProvider, ProviderChatResult, LLMUsage
 
 logger = logging.getLogger(__name__)
 
@@ -35,6 +35,7 @@ class OpenAICompatProvider(BaseLLMProvider):
         temperature: float = 0.2,
         max_tokens: int = 2048,
         timeout: Optional[float] = None,
+        scene: Optional[str] = None,
     ) -> ProviderChatResult:
         client = await self._build_client()
         response = await client.chat.completions.create(
@@ -50,8 +51,22 @@ class OpenAICompatProvider(BaseLLMProvider):
         if not content and reasoning_content:
             logger.info("Provider %s 返回空 content，使用 reasoning_content 作为兜底", self.name)
             content = reasoning_content
+
+        usage = None
+        u = getattr(response, "usage", None)
+        if u is not None:
+            prompt_tokens = getattr(u, "prompt_tokens", 0) or 0
+            completion_tokens = getattr(u, "completion_tokens", 0) or 0
+            total_tokens = getattr(u, "total_tokens", 0) or (prompt_tokens + completion_tokens)
+            usage = LLMUsage(
+                prompt_tokens=int(prompt_tokens),
+                completion_tokens=int(completion_tokens),
+                total_tokens=int(total_tokens),
+            )
+        self._record_usage(response, scene, usage)
         return ProviderChatResult(
             content=content,
             reasoning_content=reasoning_content,
             raw=response,
+            usage=usage,
         )

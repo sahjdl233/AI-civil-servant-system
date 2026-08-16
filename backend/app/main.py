@@ -4,7 +4,7 @@ from fastapi.responses import JSONResponse, RedirectResponse
 import traceback
 import logging
 from app.api.endpoints import essay
-from .api.endpoints import question, assessment, practice, providers, dual_role, prompts
+from .api.endpoints import question, assessment, practice, providers, dual_role, prompts, usage
 from app.services.provider_service import ensure_seeded, migrate_plaintext_keys
 from app.services.prompt_library_service import ensure_seeded as ensure_prompts_seeded
 
@@ -133,6 +133,9 @@ app.include_router(dual_role.router, prefix="/api/v1", tags=["essay"])
 
 # Include prompt library management API routes
 app.include_router(prompts.router, prefix="/api/v1", tags=["prompts"])
+
+# Include token usage statistics API routes
+app.include_router(usage.router, prefix="/api/v1", tags=["usage"])
 
 # Root redirects to admin dashboard for easier access
 @app.get("/")

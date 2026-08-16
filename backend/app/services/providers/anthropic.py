@@ -12,7 +12,7 @@ from typing import Dict, List, Optional
 
 import httpx
 
-from .base import BaseLLMProvider, ProviderChatResult
+from .base import BaseLLMProvider, ProviderChatResult, LLMUsage
 
 logger = logging.getLogger(__name__)
 
@@ -31,6 +31,7 @@ class AnthropicProvider(BaseLLMProvider):
         temperature: float = 0.2,
         max_tokens: int = 2048,
         timeout: Optional[float] = None,
+        scene: Optional[str] = None,
     ) -> ProviderChatResult:
         version = self.extra.get("anthropic_version") or "2023-06-01"
         # 系统消息与用户消息分离
@@ -71,4 +72,16 @@ class AnthropicProvider(BaseLLMProvider):
             for block in data.get("content", [])
             if block.get("type") == "text"
         )
-        return ProviderChatResult(content=text or "", raw=data)
+
+        usage = None
+        u = data.get("usage") or {}
+        if u:
+            input_tokens = int(u.get("input_tokens") or 0)
+            output_tokens = int(u.get("output_tokens") or 0)
+            usage = LLMUsage(
+                prompt_tokens=input_tokens,
+                completion_tokens=output_tokens,
+                total_tokens=input_tokens + output_tokens,
+            )
+        self._record_usage(data, scene, usage)
+        return ProviderChatResult(content=text or "", raw=data, usage=usage)

@@ -17,11 +17,20 @@ logger = logging.getLogger(__name__)
 
 
 @dataclass
+class LLMUsage:
+    """厂商无关的用量结构（Token 消耗统计）"""
+    prompt_tokens: int = 0
+    completion_tokens: int = 0
+    total_tokens: int = 0
+
+
+@dataclass
 class ProviderChatResult:
     """单次对话的统一返回结果"""
     content: str
     reasoning_content: Optional[str] = None
     raw: Optional[Any] = None
+    usage: Optional[LLMUsage] = None
 
 
 class BaseLLMProvider(ABC):
@@ -56,8 +65,29 @@ class BaseLLMProvider(ABC):
         temperature: float = 0.2,
         max_tokens: int = 2048,
         timeout: Optional[float] = None,
+        scene: Optional[str] = None,
     ) -> ProviderChatResult:
         """单次对话，返回文本内容；推理模型在此统一取 content / reasoning_content。"""
+
+    def _record_usage(
+        self,
+        raw: Any,
+        scene: Optional[str],
+        usage: Optional[LLMUsage],
+    ) -> None:
+        """采集钩子：把单次调用用量异步写入 token_usage 表（失败不影响主链路）。"""
+        if usage is None:
+            return
+        from app.services.usage_service import schedule_record
+
+        schedule_record(
+            provider_id=self.id,
+            provider_name=self.name,
+            provider_type=self.provider_type,
+            model=self.model,
+            scene=scene,
+            usage=usage,
+        )
 
     def supports_reasoning(self) -> bool:
         caps = self.extra.get("capabilities") or {}

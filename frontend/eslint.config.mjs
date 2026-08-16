@@ -20,6 +20,14 @@ const eslintConfig = [
       "next-env.d.ts",
     ],
   },
+  {
+    // start-server.js 是 CommonJS 的 Node CLI 脚本（无 "type": "module"），
+    // 必须使用 require() 导入 Node 内置模块，故关闭 require 禁用的规则。
+    files: ["start-server.js"],
+    rules: {
+      "@typescript-eslint/no-require-imports": "off",
+    },
+  },
 ];
 
 export default eslintConfig;

@@ -288,7 +288,8 @@ async def grade_essay_with_expert_diagnosis(provider: BaseLLMProvider, essay_con
             messages=[{"role": "user", "content": clean_diagnosis_prompt}],
             temperature=0.2,
             max_tokens=2048,  # 减少token数量以提高响应速度
-            timeout=float(provider.timeout)
+            timeout=float(provider.timeout),
+            scene="diagnosis"
         )
         
         diagnosis_content = diagnosis_result.content
@@ -319,7 +320,8 @@ async def grade_essay_with_expert_diagnosis(provider: BaseLLMProvider, essay_con
             messages=[{"role": "user", "content": clean_evaluation_prompt}],
             temperature=0.2,
             max_tokens=1024,  # 减少token数量以提高响应速度
-            timeout=float(provider.timeout)
+            timeout=float(provider.timeout),
+            scene="evaluation"
         )
         
         evaluation_content = evaluation_result.content
@@ -642,7 +644,8 @@ async def get_question_type_from_ai(question_text: str, provider: Optional[BaseL
             messages=[{"role": "user", "content": clean_prompt}],
             temperature=0.1,  # 降低温度提高准确性
             max_tokens=200,  # 增加token限制避免截断
-            timeout=60.0  # 增加超时时间
+            timeout=60.0,  # 增加超时时间
+            scene="qtype_detection"
         )
         
         # 处理推理模型：优先从content获取，fallback到reasoning_content

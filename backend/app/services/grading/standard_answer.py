@@ -46,6 +46,7 @@ async def generate_standard_answer(
         temperature=0.2,
         max_tokens=2048,
         timeout=float(provider.timeout),
+        scene="standard_answer",
     )
     content_text = result.content
     if not content_text:

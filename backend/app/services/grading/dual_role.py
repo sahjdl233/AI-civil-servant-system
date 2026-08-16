@@ -79,6 +79,7 @@ async def _run_role(provider: BaseLLMProvider, role: dict, question: str, answer
         temperature=0.2,
         max_tokens=2048,
         timeout=float(provider.timeout),
+        scene=role["key"],
     )
     content = result.content
     if not content:
